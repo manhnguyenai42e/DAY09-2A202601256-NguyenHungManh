@@ -1,0 +1,7 @@
+pandas
+mcp
+httpx
+uvicorn
+starlette
+pydantic
+pytest

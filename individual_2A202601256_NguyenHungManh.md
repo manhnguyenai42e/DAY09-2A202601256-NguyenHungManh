@@ -6,11 +6,11 @@
 
 | Thông tin       | Nội dung     |
 | --------------- | ------------ |
-| Họ và tên       | [Họ và tên]  |
-| MSSV            | [MSSV]       |
-| Khóa/Lớp        | [K4]         |
-| Vai trò chính   | [Vai trò]    |
-| Ngày hoàn thành | [YYYY-MM-DD] |
+| Họ và tên       | Nguyễn Hùng Mạnh  |
+| MSSV            | 2A202601256       |
+| Khóa/Lớp        | K4        |
+| Vai trò chính   | FullStack   |
+| Ngày hoàn thành | 2026-08-05 |
 
 ## 2. Vai trò và phạm vi công việc
 

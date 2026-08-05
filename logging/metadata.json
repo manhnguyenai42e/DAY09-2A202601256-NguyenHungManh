@@ -1,0 +1,24 @@
+{
+  "cohort": "K4",
+  "starter_repo": "K4-Day9-Multi-Agent-A2A",
+  "policy_version": "EC_POLICY_V2",
+  "model": {
+    "name": "qwen3.5-4b-ec",
+    "params": "4B",
+    "quantization": "Q4_K_M",
+    "source": "Qwen3.5-4B-GGUF (lmstudio-community), imported into Ollama from local GGUF",
+    "runtime": "Ollama (local, http://localhost:11434)",
+    "used_by": "policy_agent (case rationale narration only; classification/refund/evidence are deterministic)"
+  },
+  "framework": {
+    "orchestration": "hand-rolled A2A wire layer (Agent Card + JSON-RPC message/send) over Starlette/httpx",
+    "data_access": "MCP (Model Context Protocol) server, streamable-http transport, mcp Python SDK"
+  },
+  "runtime": {
+    "os": "Windows",
+    "gpu": "NVIDIA RTX 4050 Laptop, 6GB VRAM"
+  },
+  "cases_processed": 50,
+  "cases_failed": [],
+  "total_runtime_seconds": 385.2
+}

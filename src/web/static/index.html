@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Agent E-commerce Dispute Resolution Dashboard</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="logo-container">
+      <div class="logo-icon">
+        <i class="fa-solid fa-robot"></i>
+      </div>
+      <div>
+        <h1>Multi-Agent Dispute Resolution</h1>
+        <p class="subtitle">Olist E-commerce • Policy EC_POLICY_V2 • 7-Agent A2A System</p>
+      </div>
+    </div>
+
+    <div class="header-status">
+      <div class="status-pill active">
+        <span class="pulse-dot"></span>
+        <span class="status-text">7 Agents Online</span>
+      </div>
+      <div class="policy-badge">
+        <i class="fa-solid fa-shield-halved"></i> EC_POLICY_V2
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+
+    <!-- Left Column: Input Controls & Agent Stepper -->
+    <section class="panel input-panel">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-sliders"></i> Case Investigation Input</h2>
+        <span class="badge">Input JSON</span>
+      </div>
+
+      <!-- Input Mode Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="sample"><i class="fa-solid fa-list-check"></i> Sample Cases</button>
+        <button class="tab-btn" data-tab="dragdrop"><i class="fa-solid fa-cloud-arrow-up"></i> Upload JSON</button>
+        <button class="tab-btn" data-tab="raw"><i class="fa-solid fa-code"></i> Direct Editor</button>
+      </div>
+
+      <!-- Tab Content 1: Sample Case Dropdown -->
+      <div class="tab-content active" id="tab-sample">
+        <label class="form-label">Chọn Case mẫu để Test (50 Input Cases):</label>
+        <div class="custom-select-container" id="custom-select">
+          <div class="custom-select-trigger" id="custom-select-trigger">
+            <span id="custom-select-label">Đang tải danh sách 50 cases...</span>
+            <i class="fa-solid fa-chevron-down select-icon"></i>
+          </div>
+          <div class="custom-select-options hidden" id="custom-select-options">
+            <!-- Populated via JS with fixed max-height scrollbar -->
+          </div>
+        </div>
+
+        <div class="case-preview-card" id="sample-preview">
+          <div class="preview-row">
+            <span class="label">Case ID:</span>
+            <span class="value highlight" id="prev-case-id">EC_001</span>
+          </div>
+          <div class="preview-row">
+            <span class="label">Order ID:</span>
+            <span class="value mono" id="prev-order-id">-</span>
+          </div>
+          <div class="preview-row">
+            <span class="label">Yêu cầu KH:</span>
+            <span class="value" id="prev-message">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Drag & Drop Zone -->
+      <div class="tab-content" id="tab-dragdrop">
+        <div class="dropzone" id="dropzone">
+          <i class="fa-solid fa-file-arrow-up drop-icon"></i>
+          <h3>Kéo thả file EC_xxx.json vào đây</h3>
+          <p>hoặc nhấn để chọn file từ máy tính</p>
+          <input type="file" id="file-input" accept=".json" class="hidden-file-input">
+          <div class="file-name-badge hidden" id="file-name-badge">
+            <i class="fa-solid fa-file-code"></i> <span id="file-name-text">file.json</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Raw JSON Editor -->
+      <div class="tab-content" id="tab-raw">
+        <label for="raw-json-editor" class="form-label">Nhập hoặc Dán trực tiếp JSON Input:</label>
+        <textarea id="raw-json-editor" class="json-textarea" spellcheck="false" placeholder='{
+  "case_id": "EC_001",
+  "customer_request": {
+    "claimed_order_id": "9b75cdaf2d85857ef023980e15d01546"
+  }
+}'></textarea>
+      </div>
+
+      <!-- Action Button -->
+      <button id="btn-run" class="btn-primary">
+        <i class="fa-solid fa-bolt"></i> CHẠY ĐIỀU TRA MULTI-AGENT
+      </button>
+
+      <!-- Multi-Agent Stepper Progress -->
+      <div class="agent-stepper-container">
+        <div class="stepper-title">
+          <span><i class="fa-solid fa-diagram-project"></i> Tiến trình Multi-Agent Handoff</span>
+          <span class="stepper-time" id="stepper-timer">0.00s</span>
+        </div>
+
+        <div class="agent-nodes">
+          <div class="agent-node" id="node-coordinator">
+            <div class="node-icon"><i class="fa-solid fa-sitemap"></i></div>
+            <div class="node-info">
+              <div class="node-name">Coordinator</div>
+              <div class="node-port">:9100</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-customer">
+            <div class="node-icon"><i class="fa-solid fa-user-gear"></i></div>
+            <div class="node-info">
+              <div class="node-name">Customer Agent</div>
+              <div class="node-port">:9101</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-order_product">
+            <div class="node-icon"><i class="fa-solid fa-box-open"></i></div>
+            <div class="node-info">
+              <div class="node-name">Order & Product</div>
+              <div class="node-port">:9102</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-payment">
+            <div class="node-icon"><i class="fa-solid fa-receipt"></i></div>
+            <div class="node-info">
+              <div class="node-name">Payment Agent</div>
+              <div class="node-port">:9103</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-delivery">
+            <div class="node-icon"><i class="fa-solid fa-truck-fast"></i></div>
+            <div class="node-info">
+              <div class="node-name">Delivery Agent</div>
+              <div class="node-port">:9104</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-policy">
+            <div class="node-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+            <div class="node-info">
+              <div class="node-name">Policy Agent</div>
+              <div class="node-port">:9105</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+
+          <div class="agent-node" id="node-verifier">
+            <div class="node-icon"><i class="fa-solid fa-circle-check"></i></div>
+            <div class="node-info">
+              <div class="node-name">Verifier Agent</div>
+              <div class="node-port">:9106</div>
+            </div>
+            <div class="node-status">Idle</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Output Results Dashboard -->
+    <section class="panel output-panel">
+      <div class="panel-header">
+        <h2><i class="fa-solid fa-chart-pie"></i> Investigation Results Dashboard</h2>
+        <div class="output-actions">
+          <button id="btn-copy-json" class="btn-secondary" title="Sao chép JSON"><i class="fa-regular fa-copy"></i> Copy JSON</button>
+          <button id="btn-download-json" class="btn-secondary" title="Tải JSON"><i class="fa-solid fa-download"></i> Download</button>
+        </div>
+      </div>
+
+      <!-- Empty State before running -->
+      <div id="output-placeholder" class="placeholder-state">
+        <i class="fa-solid fa-microchip placeholder-icon"></i>
+        <h3>Chưa có dữ liệu điều tra</h3>
+        <p>Vui lòng chọn case hoặc tải file JSON ở bên trái và bấm <strong>"Chạy điều tra Multi-Agent"</strong> để xem kết quả.</p>
+      </div>
+
+      <!-- Results Content Grid -->
+      <div id="output-results" class="results-content hidden">
+
+        <!-- Hero Case Summary Banner -->
+        <div class="hero-summary-card" id="hero-card">
+          <div class="hero-main">
+            <div class="status-badge-large" id="res-status-badge">
+              <i class="fa-solid fa-circle-exclamation"></i> ACTION REQUIRED
+            </div>
+            <div class="primary-issue-title" id="res-primary-issue">
+              late_delivery_seller
+            </div>
+            <div class="confidence-tag">
+              <i class="fa-solid fa-bullseye"></i> Confidence: <span id="res-confidence">0.95</span>
+            </div>
+          </div>
+
+          <div class="hero-refund-box">
+            <div class="refund-label">Số tiền đề xuất hoàn</div>
+            <div class="refund-amount" id="res-refund-amount">R$ 18.27</div>
+            <div class="refund-currency">BRL</div>
+          </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="grid-2col">
+
+          <!-- Secondary Issues & Root Causes Card -->
+          <div class="result-card">
+            <div class="card-header"><i class="fa-solid fa-layer-group"></i> Phân tích Vấn đề & Nguyên nhân</div>
+            
+            <div class="metric-group">
+              <span class="metric-label">Secondary Issues:</span>
+              <div class="tag-list" id="res-secondary-issues">
+                <!-- tags injected here -->
+              </div>
+            </div>
+
+            <div class="metric-group">
+              <span class="metric-label">Root Cause (Nguyên nhân gốc):</span>
+              <div class="cause-box" id="res-root-cause">
+                -
+              </div>
+            </div>
+
+            <div class="metric-group">
+              <span class="metric-label">Responsible Party (Bên chịu trách nhiệm):</span>
+              <div class="party-box" id="res-responsible-party">
+                -
+              </div>
+            </div>
+          </div>
+
+          <!-- Delivery Analysis Card -->
+          <div class="result-card">
+            <div class="card-header"><i class="fa-solid fa-truck-ramp-box"></i> Phân tích Giao nhận (Delivery)</div>
+            
+            <div class="metric-row">
+              <span>Đã giao thực tế:</span>
+              <strong class="mono" id="res-delivered-at">-</strong>
+            </div>
+            <div class="metric-row">
+              <span>Dự kiến giao:</span>
+              <strong class="mono" id="res-estimated-at">-</strong>
+            </div>
+            <div class="metric-row">
+              <span>Chênh lệch giờ (Variance):</span>
+              <strong class="highlight-var" id="res-delivery-var">-</strong>
+            </div>
+            <div class="metric-row">
+              <span>Seller trễ bàn giao:</span>
+              <span class="tag-list" id="res-late-sellers">-</span>
+            </div>
+          </div>
+
+          <!-- Payment Reconciliation Card -->
+          <div class="result-card">
+            <div class="card-header"><i class="fa-solid fa-calculator"></i> Đối soát Tài chính (Payment)</div>
+
+            <div class="metric-row">
+              <span>Tổng tiền hàng:</span>
+              <span class="mono" id="res-item-total">-</span>
+            </div>
+            <div class="metric-row">
+              <span>Phí vận chuyển:</span>
+              <span class="mono" id="res-freight-total">-</span>
+            </div>
+            <div class="metric-row bold">
+              <span>Tổng tiền dự kiến:</span>
+              <span class="mono" id="res-expected-total">-</span>
+            </div>
+            <div class="metric-row bold">
+              <span>Tổng tiền thực trả:</span>
+              <span class="mono" id="res-paid-total">-</span>
+            </div>
+            <div class="metric-row">
+              <span>Trạng thái Reconciled:</span>
+              <span id="res-reconciled-badge">-</span>
+            </div>
+          </div>
+
+          <!-- Actions & Evidence Card -->
+          <div class="result-card">
+            <div class="card-header"><i class="fa-solid fa-list-check"></i> Hành động Xử lý & Bằng chứng</div>
+
+            <div class="metric-group">
+              <span class="metric-label">Resolution Actions:</span>
+              <ol class="action-list" id="res-actions-list">
+                <!-- injected -->
+              </ol>
+            </div>
+
+            <div class="metric-group">
+              <span class="metric-label">Grounded Evidence IDs (<span id="res-evidence-count">0</span>):</span>
+              <div class="tag-list compact" id="res-evidence-tags">
+                <!-- injected -->
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Raw JSON Viewer Accordion -->
+        <div class="json-viewer-card">
+          <div class="card-header">
+            <span><i class="fa-solid fa-code"></i> Output JSON Schema Chi tiết</span>
+            <button id="toggle-json-btn" class="btn-text">Thu gọn / Mở rộng</button>
+          </div>
+          <pre id="raw-json-output" class="json-code-block"><code>{}</code></pre>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
