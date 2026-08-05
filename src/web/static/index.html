@@ -185,7 +185,21 @@
               <div class="node-port">:9106</div>
             </div>
             <div class="node-status">Idle</div>
+        </div>
+      </div>
+
+      <!-- Real-time A2A & MCP Trace Log Terminal -->
+      <div class="trace-terminal-container">
+        <div class="terminal-header">
+          <div class="terminal-title"><i class="fa-solid fa-terminal"></i> Nhật ký Điều phối A2A & MCP Calls</div>
+          <div class="terminal-filters">
+            <button class="filter-btn active" data-filter="all">Tất cả</button>
+            <button class="filter-btn" data-filter="a2a">A2A Handoff</button>
+            <button class="filter-btn" data-filter="mcp">MCP Tools</button>
           </div>
+        </div>
+        <div class="terminal-body" id="trace-terminal-body">
+          <div class="log-line system">[SYSTEM] Sẵn sàng điều tra case. Bấm "CHẠY ĐIỀU TRA MULTI-AGENT" để theo dõi real-time logs...</div>
         </div>
       </div>
     </section>

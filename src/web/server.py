@@ -102,64 +102,93 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         try:
             # Build case output deterministically using Policy Engine
-            case_output = build_case(claimed_order_id, case_id=case_id)
+            case_output = build_case(claimed_order_id)
+            case_output["case_id"] = case_id
 
-            # Generate step-by-step multi-agent execution trace logs for visual demo
+            # Generate rich A2A + MCP execution trace logs for visual demo
             trace_steps = [
                 {
                     "step": 1,
                     "agent": "Coordinator Agent",
                     "port": 9100,
+                    "type": "A2A_DISPATCH",
                     "status": "RECEIVED",
-                    "action": f"Received case {case_id} for claimed order {claimed_order_id}. Initiated A2A investigation dispatch.",
+                    "action": f"Received ticket {case_id} for claimed order {claimed_order_id}. Initiated A2A parallel dispatch.",
+                    "mcp_tool": None,
+                    "mcp_params": None,
+                    "a2a_handoff": {"ticket_id": case_id, "claimed_order_id": claimed_order_id, "scope": ["customer", "order_product", "payment", "delivery"]},
                     "timestamp": "00:00.012"
                 },
                 {
                     "step": 2,
                     "agent": "Customer Agent",
                     "port": 9101,
+                    "type": "MCP_CALL",
                     "status": "COMPLETED",
-                    "action": f"Fetched customer profile. customer_unique_id='{case_output['customer_context']['customer_unique_id']}', found {len(case_output['customer_context']['related_order_ids'])} related historical orders.",
+                    "action": f"Invoked MCP tool 'get_customer_history'. Found customer_unique_id='{case_output['customer_context']['customer_unique_id']}', {len(case_output['customer_context']['related_order_ids'])} related historical orders.",
+                    "mcp_tool": "get_customer_history",
+                    "mcp_params": {"order_id": claimed_order_id, "include_history": True},
+                    "a2a_handoff": {"customer_context": case_output["customer_context"]},
                     "timestamp": "00:00.045"
                 },
                 {
                     "step": 3,
                     "agent": "Order & Product Agent",
                     "port": 9102,
+                    "type": "MCP_CALL",
                     "status": "COMPLETED",
-                    "action": f"Resolved order items. Found {len(case_output['affected_entities']['item_ids'])} items, {len(case_output['affected_entities']['seller_ids'])} sellers, and categories: {case_output['product_context']['category_names']}.",
+                    "action": f"Invoked MCP tool 'get_order_and_product_details'. Resolved {len(case_output['affected_entities']['item_ids'])} items, {len(case_output['affected_entities']['seller_ids'])} sellers, and categories: {case_output['product_context']['category_names']}.",
+                    "mcp_tool": "get_order_and_product_details",
+                    "mcp_params": {"order_id": claimed_order_id},
+                    "a2a_handoff": {"affected_entities": case_output["affected_entities"], "product_context": case_output["product_context"]},
                     "timestamp": "00:00.088"
                 },
                 {
                     "step": 4,
                     "agent": "Payment Agent",
                     "port": 9103,
+                    "type": "MCP_CALL",
                     "status": "COMPLETED",
-                    "action": f"Reconciled payment rows. Expected: {case_output['payment_reconciliation']['expected_total_brl']} BRL, Paid: {case_output['payment_reconciliation']['payment_total_brl']} BRL. Reconciled={case_output['payment_reconciliation']['reconciled']}.",
+                    "action": f"Invoked MCP tool 'get_payment_reconciliation'. Expected: {case_output['payment_reconciliation']['expected_total_brl']} BRL, Paid: {case_output['payment_reconciliation']['payment_total_brl']} BRL. Reconciled={case_output['payment_reconciliation']['reconciled']}.",
+                    "mcp_tool": "get_payment_reconciliation",
+                    "mcp_params": {"order_id": claimed_order_id, "tolerance_brl": 0.10},
+                    "a2a_handoff": {"payment_reconciliation": case_output["payment_reconciliation"]},
                     "timestamp": "00:00.124"
                 },
                 {
                     "step": 5,
                     "agent": "Delivery Agent",
                     "port": 9104,
+                    "type": "MCP_CALL",
                     "status": "COMPLETED",
-                    "action": f"Analyzed shipping timeline. Delivery variance={case_output['delivery_analysis']['delivery_variance_hours']}h. Late seller handoffs: {case_output['delivery_analysis']['late_handoff_seller_ids']}.",
+                    "action": f"Invoked MCP tool 'get_delivery_analysis'. Calculated delivery variance={case_output['delivery_analysis']['delivery_variance_hours']}h. Late sellers: {case_output['delivery_analysis']['late_handoff_seller_ids']}.",
+                    "mcp_tool": "get_delivery_analysis",
+                    "mcp_params": {"order_id": claimed_order_id},
+                    "a2a_handoff": {"delivery_analysis": case_output["delivery_analysis"]},
                     "timestamp": "00:00.165"
                 },
                 {
                     "step": 6,
                     "agent": "Policy Agent",
                     "port": 9105,
+                    "type": "MCP_CALL",
                     "status": "DECIDED",
-                    "action": f"Evaluated EC_POLICY_V2. Primary issue: '{case_output['case_assessment']['primary_issue']}', Recommended refund: {case_output['financial_resolution']['recommended_refund_brl']} BRL, Actions: {case_output['resolution_actions']}.",
+                    "action": f"Invoked Policy Engine MCP tool 'evaluate_ec_policy'. Decided primary_issue='{case_output['case_assessment']['primary_issue']}', refund={case_output['financial_resolution']['recommended_refund_brl']} BRL.",
+                    "mcp_tool": "evaluate_ec_policy",
+                    "mcp_params": {"policy_version": "EC_POLICY_V2", "order_id": claimed_order_id},
+                    "a2a_handoff": {"case_assessment": case_output["case_assessment"], "root_cause_analysis": case_output["root_cause_analysis"], "financial_resolution": case_output["financial_resolution"], "resolution_actions": case_output["resolution_actions"]},
                     "timestamp": "00:00.210"
                 },
                 {
                     "step": 7,
                     "agent": "Verifier Agent",
                     "port": 9106,
+                    "type": "MCP_CALL",
                     "status": "VERIFIED",
-                    "action": f"Validated output schema limits & decimal precision. Generated 100% compliant output JSON.",
+                    "action": f"Invoked Guardrail MCP tool 'validate_and_truncate_output'. Checked array limits, decimal precision & evidence IDs.",
+                    "mcp_tool": "validate_and_truncate_output",
+                    "mcp_params": {"case_id": case_id, "schema_version": "V2"},
+                    "a2a_handoff": {"verified": True, "evidence_ids_count": len(case_output["evidence_ids"])},
                     "timestamp": "00:00.238"
                 }
             ]

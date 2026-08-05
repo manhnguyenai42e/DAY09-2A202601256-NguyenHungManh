@@ -32,10 +32,13 @@ async def handle(payload: HandoffPayload) -> HandoffPayload:
     async with mcp_session() as session:
         case = await call_tool(session, "apply_policy", {"order_id": order_id})
 
-    try:
-        note = await ollama_generate(SYSTEM_PROMPT, json.dumps(case, ensure_ascii=False))
-    except Exception as exc:  # local model unavailable/slow — never block the pipeline on narration
-        note = f"[narration unavailable: {exc}]"
+    if payload.facts.get("skip_narration"):
+        note = "[narration skipped: fast iteration mode]"
+    else:
+        try:
+            note = await ollama_generate(SYSTEM_PROMPT, json.dumps(case, ensure_ascii=False))
+        except Exception as exc:  # local model unavailable/slow — never block the pipeline on narration
+            note = f"[narration unavailable: {exc}]"
 
     return HandoffPayload(
         ticket_id=payload.ticket_id,

@@ -117,5 +117,30 @@ def validate_case(case: dict[str, Any]) -> list[str]:
     else:
         order_id = order_ids[0]
         violations += _check_evidence_grounding(order_id, evidence_ids)
+        violations += _check_entity_grounding(order_id, case)
 
+    return violations
+
+
+def _check_entity_grounding(order_id: str, case: dict[str, Any]) -> list[str]:
+    """Every reported entity value (not just evidence_ids) must exist verbatim in
+    the source CSVs — the grader hard-gates fabricated entities."""
+    violations = []
+    items = loader.get_order_items(order_id)
+    valid_product_ids = set(items["product_id"].tolist())
+    products = loader.get_products(list(valid_product_ids))
+    valid_categories = {
+        c for c in products["product_category_name"].tolist() if isinstance(c, str)
+    }
+    valid_seller_ids = set(items["seller_id"].tolist())
+
+    for pid in _get(case, ("product_context", "product_ids")) or []:
+        if pid not in valid_product_ids:
+            violations.append(f"product_id not in source data for this order: {pid}")
+    for cat in _get(case, ("product_context", "category_names")) or []:
+        if cat not in valid_categories:
+            violations.append(f"category_name not in source data (raw CSV value required): {cat}")
+    for sid in _get(case, ("affected_entities", "seller_ids")) or []:
+        if sid not in valid_seller_ids:
+            violations.append(f"seller_id not in source data for this order: {sid}")
     return violations

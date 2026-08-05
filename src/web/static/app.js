@@ -1,11 +1,37 @@
-// Client-side Javascript logic for Multi-Agent Dispute Resolution Dashboard
-
 document.addEventListener('DOMContentLoaded', () => {
   // Custom Select Elements
   const customSelect = document.getElementById('custom-select');
   const customSelectTrigger = document.getElementById('custom-select-trigger');
   const customSelectLabel = document.getElementById('custom-select-label');
   const customSelectOptions = document.getElementById('custom-select-options');
+
+  // Preview & Input Elements
+  const samplePreview = document.getElementById('sample-preview');
+  const prevCaseId = document.getElementById('prev-case-id');
+  const prevOrderId = document.getElementById('prev-order-id');
+  const prevMessage = document.getElementById('prev-message');
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileNameBadge = document.getElementById('file-name-badge');
+  const fileNameText = document.getElementById('file-name-text');
+
+  const rawJsonEditor = document.getElementById('raw-json-editor');
+  const btnRun = document.getElementById('btn-run');
+  const stepperTimer = document.getElementById('stepper-timer');
+
+  const outputPlaceholder = document.getElementById('output-placeholder');
+  const outputResults = document.getElementById('output-results');
+
+  const btnCopyJson = document.getElementById('btn-copy-json');
+  const btnDownloadJson = document.getElementById('btn-download-json');
+  const toggleJsonBtn = document.getElementById('toggle-json-btn');
+  const rawJsonOutput = document.getElementById('raw-json-output');
+
+  let activeTab = 'sample';
+  let loadedSampleCases = [];
+  let uploadedJsonData = null;
+  let currentOutputJson = null;
   let selectedCaseId = null;
 
   // Initialize
@@ -241,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
     outputResults.classList.add('hidden');
 
     const startTime = performance.now();
-    await animateAgentStepper();
 
     try {
       const response = await fetch('/api/investigate', {
@@ -259,6 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      await animateAgentStepper(resData.trace_steps || []);
+
       currentOutputJson = resData.case_output;
       renderResults(currentOutputJson);
 
@@ -271,10 +298,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ----------------------------------------------------
-  // 5. Agent Stepper Animation
+  // 5. Agent Stepper Animation & Trace Log Terminal
   // ----------------------------------------------------
-  async function animateAgentStepper() {
+  const terminalBody = document.getElementById('trace-terminal-body');
+  let currentTraceLogs = [];
+
+  // Terminal Filter Handlers
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTerminalLogs(btn.dataset.filter);
+    });
+  });
+
+  async function animateAgentStepper(traceSteps) {
     const agents = ['coordinator', 'customer', 'order_product', 'payment', 'delivery', 'policy', 'verifier'];
+    currentTraceLogs = traceSteps;
+    terminalBody.innerHTML = '';
     
     // Reset all nodes
     agents.forEach(agent => {
@@ -285,16 +326,60 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    for (const agent of agents) {
-      const el = document.getElementById(`node-${agent}`);
+    for (let i = 0; i < traceSteps.length; i++) {
+      const step = traceSteps[i];
+      const agentKey = step.agent.toLowerCase().replace(/ & /g, '_').replace(/ agent/g, '').trim();
+      const el = document.getElementById(`node-${agentKey}`);
+
       if (el) {
         el.className = 'agent-node running';
         el.querySelector('.node-status').textContent = 'Processing...';
-        await new Promise(r => setTimeout(r, 60)); // smooth visual tick
+      }
+
+      appendTerminalLog(step);
+      await new Promise(r => setTimeout(r, 70)); // smooth step delay
+
+      if (el) {
         el.className = 'agent-node completed';
         el.querySelector('.node-status').textContent = 'Done';
       }
     }
+  }
+
+  function appendTerminalLog(step) {
+    const div = document.createElement('div');
+    div.className = `log-line ${step.type.toLowerCase()}`;
+    div.dataset.type = step.type;
+
+    let tagHtml = '';
+    if (step.type === 'A2A_DISPATCH') {
+      tagHtml = `<span class="tag-a2a">[A2A DISPATCH :${step.port}]</span>`;
+    } else if (step.mcp_tool) {
+      tagHtml = `<span class="tag-mcp">[MCP CALL :${step.port} ➔ ${step.mcp_tool}]</span>`;
+    } else {
+      tagHtml = `<span class="tag-policy">[${step.agent}]</span>`;
+    }
+
+    let detailStr = step.action;
+    if (step.mcp_params) {
+      detailStr += ` | params=${JSON.stringify(step.mcp_params)}`;
+    }
+    if (step.a2a_handoff) {
+      detailStr += ` | handoff=${JSON.stringify(step.a2a_handoff)}`;
+    }
+
+    div.innerHTML = `<span class="ts">${step.timestamp}</span> ${tagHtml} ${detailStr}`;
+    terminalBody.appendChild(div);
+    terminalBody.scrollTop = terminalBody.scrollHeight;
+  }
+
+  function renderTerminalLogs(filter) {
+    terminalBody.innerHTML = '';
+    currentTraceLogs.forEach(step => {
+      if (filter === 'a2a' && step.type !== 'A2A_DISPATCH') return;
+      if (filter === 'mcp' && !step.mcp_tool) return;
+      appendTerminalLog(step);
+    });
   }
 
   // ----------------------------------------------------

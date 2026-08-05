@@ -818,3 +818,107 @@ body {
   max-height: 350px;
   overflow-y: auto;
 }
+
+/* Trace Terminal Console */
+.trace-terminal-container {
+  background: #090d16;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin-top: 0.75rem;
+}
+
+.terminal-header {
+  background: rgba(15, 23, 42, 0.9);
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.terminal-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.terminal-filters {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.filter-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-btn.active, .filter-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+.terminal-body {
+  padding: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.terminal-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 999px;
+}
+
+.log-line {
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.log-line.system {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.log-line .tag-a2a {
+  color: var(--accent-secondary);
+  font-weight: bold;
+}
+
+.log-line .tag-mcp {
+  color: #a855f7;
+  font-weight: bold;
+}
+
+.log-line .tag-policy {
+  color: #f59e0b;
+  font-weight: bold;
+}
+
+.log-line .tag-verifier {
+  color: var(--color-success);
+  font-weight: bold;
+}
+
+.log-line .ts {
+  color: var(--text-muted);
+  margin-right: 0.4rem;
+}

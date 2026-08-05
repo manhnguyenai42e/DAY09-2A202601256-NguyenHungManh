@@ -68,7 +68,10 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
     ]:
         trace.append(_trace_event(case_id, name, handoff("", base_facts), resp))
 
+    import os
+
     policy_facts = {
+        "skip_narration": bool(os.environ.get("EC_SKIP_NARRATION")),
         "order_id": order_id,
         "customer_context": customer_resp.facts.get("customer_context"),
         "affected_entities": order_product_resp.facts.get("affected_entities"),

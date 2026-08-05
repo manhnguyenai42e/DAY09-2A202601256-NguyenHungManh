@@ -5,8 +5,10 @@ run, not appended across runs), and writes logging/metadata.json.
 Requires `scripts/run_agents.py` to already be running (MCP server + all 7
 A2A agent services)."""
 
+import argparse
 import asyncio
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -30,30 +32,47 @@ from src.config import (
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--parallel", type=int, default=6, help="concurrent cases (1 = sequential)")
+    parser.add_argument("--fast", action="store_true",
+                        help="skip LLM narration (trace note only; scored JSON is unaffected) for quick iterations")
+    args = parser.parse_args()
+    if args.fast:
+        os.environ["EC_SKIP_NARRATION"] = "1"
+
     tickets = sorted(INPUT_DIR.glob("EC_*.json"))
     if len(tickets) != 50:
         print(f"WARNING: expected 50 input tickets, found {len(tickets)}")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
-    all_trace: list[dict] = []
+    trace_by_case: dict[str, list[dict]] = {}
     failures: list[str] = []
+    sem = asyncio.Semaphore(max(1, args.parallel))
+    done_count = 0
 
     t_start = time.time()
-    for i, path in enumerate(tickets, 1):
+
+    async def process(path: Path) -> None:
+        nonlocal done_count
         ticket = json.loads(path.read_text(encoding="utf-8"))
         case_id = ticket["case_id"]
         t0 = time.time()
-        try:
-            case, trace = await run_case(ticket)
-        except Exception as exc:
-            print(f"[{i}/{len(tickets)}] {case_id} FAILED: {exc}")
-            failures.append(case_id)
-            continue
-        all_trace.extend(trace)
+        async with sem:
+            try:
+                case, trace = await run_case(ticket)
+            except Exception as exc:
+                print(f"{case_id} FAILED: {exc}")
+                failures.append(case_id)
+                return
+        trace_by_case[case_id] = trace
         out_path = OUTPUT_DIR / f"{case_id}.json"
         out_path.write_text(json.dumps(case, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"[{i}/{len(tickets)}] {case_id} -> {case['case_assessment']['primary_issue']} "
+        done_count += 1
+        print(f"[{done_count}/{len(tickets)}] {case_id} -> {case['case_assessment']['primary_issue']} "
               f"({time.time() - t0:.1f}s)")
+
+    await asyncio.gather(*(process(p) for p in tickets))
+    all_trace = [ev for cid in sorted(trace_by_case) for ev in trace_by_case[cid]]
 
     with TRACE_PATH.open("w", encoding="utf-8") as f:
         for event in all_trace:
