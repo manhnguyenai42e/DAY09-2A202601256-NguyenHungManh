@@ -33,10 +33,17 @@
     <div class="header-status">
       <div class="status-pill active">
         <span class="pulse-dot"></span>
-        <span class="status-text">7 Agents Online</span>
+        <span class="status-text">7 A2A Agents :9100–9106</span>
+      </div>
+      <div class="status-pill active">
+        <span class="pulse-dot"></span>
+        <span class="status-text">1 MCP Server :8765 · 8 Tools</span>
       </div>
       <div class="policy-badge">
         <i class="fa-solid fa-shield-halved"></i> EC_POLICY_V2
+      </div>
+      <div class="policy-badge">
+        <i class="fa-solid fa-microchip"></i> qwen3.5-4b-ec (local)
       </div>
     </div>
   </header>
@@ -191,11 +198,15 @@
       <!-- Real-time A2A & MCP Trace Log Terminal -->
       <div class="trace-terminal-container">
         <div class="terminal-header">
-          <div class="terminal-title"><i class="fa-solid fa-terminal"></i> Nhật ký Điều phối A2A & MCP Calls</div>
+          <div class="terminal-title"><i class="fa-solid fa-terminal"></i> Nhật ký A2A &amp; MCP</div>
           <div class="terminal-filters">
             <button class="filter-btn active" data-filter="all">Tất cả</button>
-            <button class="filter-btn" data-filter="a2a">A2A Handoff</button>
             <button class="filter-btn" data-filter="mcp">MCP Tools</button>
+            <button class="filter-btn" data-filter="llm">LLM</button>
+            <button class="filter-btn" data-filter="evidence">Evidence</button>
+            <button class="filter-btn" id="btn-font-minus" title="Giảm cỡ chữ"><i class="fa-solid fa-minus"></i></button>
+            <button class="filter-btn" id="btn-font-plus" title="Tăng cỡ chữ"><i class="fa-solid fa-plus"></i></button>
+            <button class="filter-btn" id="btn-terminal-expand" title="Phóng to toàn màn hình"><i class="fa-solid fa-expand"></i></button>
           </div>
         </div>
         <div class="terminal-body" id="trace-terminal-body">

@@ -53,7 +53,12 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
     def handoff(question: str, facts: dict[str, Any], from_agent: str = "coordinator") -> HandoffPayload:
         return HandoffPayload(ticket_id=case_id, from_agent=from_agent, question=question, facts=facts)
 
-    base_facts = {"order_id": order_id}
+    import os as _os
+
+    base_facts = {
+        "order_id": order_id,
+        "skip_narration": bool(_os.environ.get("EC_SKIP_NARRATION")),
+    }
     (customer_resp, order_product_resp, payment_resp, delivery_resp) = await asyncio.gather(
         send_handoff(agent_url("customer"), handoff("resolve customer identity + history", base_facts)),
         send_handoff(agent_url("order_product"), handoff("resolve order/item/seller/product entities", base_facts)),
@@ -83,7 +88,10 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
     policy_resp = await send_handoff(agent_url("policy"), policy_req)
     trace.append(_trace_event(case_id, "policy", policy_req, policy_resp))
 
-    verifier_req = handoff("verify schema, limits and evidence grounding", {"case": policy_resp.facts["case"]})
+    verifier_req = handoff(
+        "verify schema, limits and evidence grounding",
+        {"case": policy_resp.facts["case"], "skip_narration": base_facts["skip_narration"]},
+    )
     verifier_resp = await send_handoff(agent_url("verifier"), verifier_req)
     trace.append(_trace_event(case_id, "verifier", verifier_req, verifier_resp))
 
@@ -92,7 +100,10 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
         retries += 1
         policy_resp = await send_handoff(agent_url("policy"), policy_req)
         trace.append(_trace_event(case_id, "policy_retry", policy_req, policy_resp))
-        verifier_req = handoff("re-verify after policy retry", {"case": policy_resp.facts["case"]})
+        verifier_req = handoff(
+            "re-verify after policy retry",
+            {"case": policy_resp.facts["case"], "skip_narration": base_facts["skip_narration"]},
+        )
         verifier_resp = await send_handoff(agent_url("verifier"), verifier_req)
         trace.append(_trace_event(case_id, "verifier_retry", verifier_req, verifier_resp))
 

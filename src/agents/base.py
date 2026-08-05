@@ -61,7 +61,33 @@ async def ollama_generate(system: str, user: str, timeout: float = 120.0) -> str
         return data.get("message", {}).get("content", "").strip()
 
 
-async def send_handoff(url: str, payload: HandoffPayload, timeout: float = 60.0) -> HandoffPayload:
+async def agent_reflect(
+    role_prompt: str, facts: dict, skip: bool = False, timeout: float = 90.0
+) -> str:
+    """Every domain agent's LLM step: read the grounded facts it just retrieved
+    via MCP and write its own expert assessment for the handoff note.
+
+    The LLM never changes the facts (they go into the handoff verbatim from the
+    tools); it reasons about them. Returns "" when narration is skipped
+    (fast-iteration mode) so callers can fall back to a plain template note.
+    """
+    if skip:
+        return ""
+    system = (
+        "Bạn là một agent chuyên trách trong hệ thống điều tra khiếu nại thương mại "
+        "điện tử. Vai trò của bạn: " + role_prompt + " "
+        "Dưới đây là dữ kiện bạn vừa tra cứu được từ MCP tool (dữ liệu gốc, không được "
+        "thay đổi hay bịa thêm). Hãy viết 1-2 câu tiếng Việt nhận định chuyên môn về "
+        "dữ kiện này cho agent tiếp theo: điểm nào đáng chú ý, có bất thường không. "
+        "Chỉ trả lời phần nhận định, không lặp lại dữ liệu."
+    )
+    try:
+        return await ollama_generate(system, json.dumps(facts, ensure_ascii=False), timeout=timeout)
+    except Exception as exc:
+        return f"[narration unavailable: {exc}]"
+
+
+async def send_handoff(url: str, payload: HandoffPayload, timeout: float = 180.0) -> HandoffPayload:
     """A2A client call: POST message/send to another agent's /a2a endpoint."""
     request_body = build_message_send_request(payload)
     async with httpx.AsyncClient(timeout=timeout) as client:

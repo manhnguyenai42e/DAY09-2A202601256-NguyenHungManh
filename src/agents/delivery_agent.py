@@ -1,10 +1,10 @@
-"""Delivery Agent: delivery variance + per-seller handoff variance, grounded
-via MCP only (date-diff arithmetic is deterministic, not LLM-guessed)."""
+"""Delivery Agent: LLM agent for delivery + seller-handoff analysis. Date
+arithmetic is deterministic (MCP tool); the LLM reasons over the variances."""
 
 from __future__ import annotations
 
 from src.a2a_common.protocol import AgentCard, HandoffPayload
-from src.agents.base import build_agent_app, call_tool, mcp_session
+from src.agents.base import agent_reflect, build_agent_app, call_tool, mcp_session
 from src.config import agent_url
 
 CARD = AgentCard(
@@ -26,14 +26,24 @@ async def handle(payload: HandoffPayload) -> HandoffPayload:
     if delivery.get("delivered_at") is None:
         missing.append("order_delivered_customer_date is null: delivery lateness cannot be determined")
 
+    facts = {"delivery_analysis": {k: v for k, v in delivery.items() if k != "found"}}
+    note = await agent_reflect(
+        "phân tích giao vận: đơn giao sớm hay trễ so với hẹn (delivery_variance_hours "
+        "dương là trễ), và nếu trễ thì seller nào bàn giao cho carrier muộn hơn "
+        "shipping_limit_date (trách nhiệm seller) hay không seller nào muộn (trách nhiệm "
+        "đơn vị vận chuyển).",
+        facts,
+        skip=bool(payload.facts.get("skip_narration")),
+    )
     return HandoffPayload(
         ticket_id=payload.ticket_id,
         from_agent="delivery",
         question=payload.question,
-        facts={"delivery_analysis": {k: v for k, v in delivery.items() if k != "found"}},
+        facts=facts,
         evidence_ids=evidence,
         missing=missing,
         next_action="handoff to policy agent",
+        note=note,
     )
 
 

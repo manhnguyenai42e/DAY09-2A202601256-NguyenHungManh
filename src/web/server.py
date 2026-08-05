@@ -38,6 +38,18 @@ AGENT_MCP_TOOLS = {
     "coordinator": [],
 }
 
+AGENT_DISPLAY = {
+    "coordinator": "Coordinator Agent",
+    "customer": "Customer Agent",
+    "order_product": "Order & Product Agent",
+    "payment": "Payment Agent",
+    "delivery": "Delivery Agent",
+    "policy": "Policy Agent",
+    "policy_retry": "Policy Agent (retry)",
+    "verifier": "Verifier Agent",
+    "verifier_retry": "Verifier Agent (retry)",
+}
+
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
@@ -132,6 +144,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 {
                     "step": 0,
                     "agent": "Coordinator Agent",
+                    "agent_key": "coordinator",
                     "port": AGENT_PORTS["coordinator"],
                     "type": "A2A_DISPATCH",
                     "status": "DISPATCHED",
@@ -145,29 +158,28 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             ]
             for i, ev in enumerate(trace, start=1):
                 agent = ev.get("agent", "")
+                agent_key = agent.replace("_retry", "")
                 tools = AGENT_MCP_TOOLS.get(agent, [])
                 status = "COMPLETED"
                 if agent.startswith("verifier"):
                     status = "VERIFIED" if not ev.get("missing") else "VIOLATIONS"
                 elif ev.get("missing"):
                     status = "PARTIAL_DATA"
-                action = f"facts: {', '.join(ev.get('facts_reported', []))}"
-                if ev.get("missing"):
-                    action += f" | missing: {'; '.join(ev['missing'])}"
-                if ev.get("note"):
-                    action += f" | LLM: {ev['note']}"
                 trace_steps.append({
                     "step": i,
-                    "agent": agent.replace("_", " ").title() + " Agent",
-                    "port": AGENT_PORTS.get(agent.replace("_retry", ""), None),
+                    "agent": AGENT_DISPLAY.get(agent, agent),
+                    "agent_key": agent_key,
+                    "port": AGENT_PORTS.get(agent_key, None),
                     "type": "A2A_HANDOFF",
                     "status": status,
-                    "action": action,
+                    "action": f"facts: {', '.join(ev.get('facts_reported', []))}" if ev.get("facts_reported") else "",
+                    "evidence_ids": ev.get("evidence_ids", []),
+                    "missing": ev.get("missing", []),
+                    "note": ev.get("note", ""),
                     "mcp_tool": ", ".join(tools) if tools else None,
                     "mcp_params": {"order_id": claimed_order_id},
                     "a2a_handoff": {
                         "question": ev.get("question", ""),
-                        "evidence_ids": ev.get("evidence_ids", []),
                         "next_action": ev.get("next_action", ""),
                     },
                     "timestamp": ev.get("timestamp", ""),

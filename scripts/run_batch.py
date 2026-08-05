@@ -88,7 +88,12 @@ async def main() -> None:
             "quantization": OLLAMA_MODEL_QUANTIZATION,
             "source": OLLAMA_MODEL_SOURCE,
             "runtime": "Ollama (local, http://localhost:11434)",
-            "used_by": "policy_agent (case rationale narration only; classification/refund/evidence are deterministic)",
+            "used_by": (
+                "customer_agent, order_product_agent, payment_agent, delivery_agent, policy_agent "
+                "(mỗi agent 1 lời gọi/case với role prompt riêng); verifier_agent cố tình không "
+                "dùng LLM vì là cổng kiểm định cuối. Số học và định dạng evidence ID do MCP tool "
+                "tính deterministic."
+            ),
         },
         "framework": {
             "orchestration": "hand-rolled A2A wire layer (Agent Card + JSON-RPC message/send) over Starlette/httpx",

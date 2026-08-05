@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const agents = ['coordinator', 'customer', 'order_product', 'payment', 'delivery', 'policy', 'verifier'];
     currentTraceLogs = traceSteps;
     terminalBody.innerHTML = '';
-    
+
     // Reset all nodes
     agents.forEach(agent => {
       const el = document.getElementById(`node-${agent}`);
@@ -326,9 +326,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    const t0 = parseTs(traceSteps.length ? traceSteps[0].timestamp : null);
+
     for (let i = 0; i < traceSteps.length; i++) {
       const step = traceSteps[i];
-      const agentKey = step.agent.toLowerCase().replace(/ & /g, '_').replace(/ agent/g, '').trim();
+      const agentKey = step.agent_key ||
+        step.agent.toLowerCase().replace(/ & /g, '_').replace(/ agent/g, '').trim();
       const el = document.getElementById(`node-${agentKey}`);
 
       if (el) {
@@ -336,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.querySelector('.node-status').textContent = 'Processing...';
       }
 
-      appendTerminalLog(step);
+      appendTerminalLog(step, t0);
       await new Promise(r => setTimeout(r, 70)); // smooth step delay
 
       if (el) {
@@ -346,41 +349,109 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function appendTerminalLog(step) {
+  function parseTs(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function fmtClock(iso) {
+    // "2026-08-05T09:14:50.660809+00:00" -> "09:14:50.660"
+    const m = /T(\d{2}:\d{2}:\d{2})\.(\d{3})/.exec(iso || '');
+    return m ? `${m[1]}.${m[2]}` : (iso || '--');
+  }
+
+  function appendTerminalLog(step, t0) {
     const div = document.createElement('div');
-    div.className = `log-line ${step.type.toLowerCase()}`;
+    const statusClass = step.status === 'VERIFIED' ? 'ok'
+      : (step.status === 'VIOLATIONS' ? 'bad'
+      : (step.status === 'PARTIAL_DATA' ? 'warn' : 'run'));
+    div.className = `log-entry ${statusClass}`;
     div.dataset.type = step.type;
+    div.dataset.hasMcp = step.mcp_tool ? '1' : '';
+    div.dataset.hasNote = step.note ? '1' : '';
+    div.dataset.hasEvidence = (step.evidence_ids && step.evidence_ids.length) ? '1' : '';
 
-    let tagHtml = '';
+    const ts = parseTs(step.timestamp);
+    const delta = (ts && t0) ? `+${((ts - t0) / 1000).toFixed(3)}s` : '';
+
+    let head = `<span class="ts">${fmtClock(step.timestamp)}</span>`
+      + (delta ? `<span class="delta">${delta}</span>` : '')
+      + `<span class="agent-chip">${step.agent}${step.port ? ' :' + step.port : ''}</span>`
+      + `<span class="status-chip ${statusClass}">${step.status}</span>`;
+    if (step.mcp_tool) {
+      head += `<span class="tag-mcp">MCP ➔ ${step.mcp_tool}</span>`;
+    }
     if (step.type === 'A2A_DISPATCH') {
-      tagHtml = `<span class="tag-a2a">[A2A DISPATCH :${step.port}]</span>`;
-    } else if (step.mcp_tool) {
-      tagHtml = `<span class="tag-mcp">[MCP CALL :${step.port} ➔ ${step.mcp_tool}]</span>`;
-    } else {
-      tagHtml = `<span class="tag-policy">[${step.agent}]</span>`;
+      head += `<span class="tag-a2a">A2A DISPATCH ➔ :9101 :9102 :9103 :9104 (song song)</span>`;
     }
 
-    let detailStr = step.action;
-    if (step.mcp_params) {
-      detailStr += ` | params=${JSON.stringify(step.mcp_params)}`;
+    let body = '';
+    const q = step.a2a_handoff && step.a2a_handoff.question;
+    if (q) body += `<div class="log-q">❝${q}❞</div>`;
+    if (step.action) body += `<div class="log-action">${step.action}</div>`;
+    if (step.evidence_ids && step.evidence_ids.length) {
+      body += `<div class="log-evidence">evidence: ${step.evidence_ids.map(e => `<span>${e}</span>`).join(' ')}</div>`;
     }
-    if (step.a2a_handoff) {
-      detailStr += ` | handoff=${JSON.stringify(step.a2a_handoff)}`;
+    if (step.missing && step.missing.length) {
+      body += `<div class="log-missing">missing: ${step.missing.join('; ')}</div>`;
     }
+    if (step.note) body += `<div class="log-note">🧠 LLM: ${step.note}</div>`;
+    body += `<details class="log-payload"><summary>payload</summary><pre>${
+      JSON.stringify({ mcp_params: step.mcp_params, a2a_handoff: step.a2a_handoff }, null, 2)
+    }</pre></details>`;
 
-    div.innerHTML = `<span class="ts">${step.timestamp}</span> ${tagHtml} ${detailStr}`;
+    div.innerHTML = `<div class="log-head">${head}</div>${body}`;
     terminalBody.appendChild(div);
     terminalBody.scrollTop = terminalBody.scrollHeight;
   }
 
   function renderTerminalLogs(filter) {
     terminalBody.innerHTML = '';
+    const t0 = parseTs(currentTraceLogs.length ? currentTraceLogs[0].timestamp : null);
     currentTraceLogs.forEach(step => {
-      if (filter === 'a2a' && step.type !== 'A2A_DISPATCH') return;
       if (filter === 'mcp' && !step.mcp_tool) return;
-      appendTerminalLog(step);
+      if (filter === 'llm' && !step.note) return;
+      if (filter === 'evidence' && !(step.evidence_ids && step.evidence_ids.length)) return;
+      appendTerminalLog(step, t0);
     });
   }
+
+  // Terminal fullscreen popup + font size controls
+  const terminalContainer = document.querySelector('.trace-terminal-container');
+  const btnExpand = document.getElementById('btn-terminal-expand');
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'terminal-backdrop hidden';
+  document.body.appendChild(backdrop);
+
+  function setExpanded(on) {
+    terminalContainer.classList.toggle('expanded', on);
+    backdrop.classList.toggle('hidden', !on);
+    document.body.classList.toggle('terminal-locked', on);
+    if (btnExpand) {
+      btnExpand.innerHTML = on
+        ? '<i class="fa-solid fa-compress"></i>'
+        : '<i class="fa-solid fa-expand"></i>';
+      btnExpand.title = on ? 'Thu nhỏ (Esc)' : 'Phóng to toàn màn hình';
+    }
+    terminalBody.scrollTop = terminalBody.scrollHeight;
+  }
+
+  if (btnExpand) {
+    btnExpand.addEventListener('click', () =>
+      setExpanded(!terminalContainer.classList.contains('expanded')));
+  }
+  backdrop.addEventListener('click', () => setExpanded(false));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && terminalContainer.classList.contains('expanded')) setExpanded(false);
+  });
+  let termFontPx = 12.5;
+  const applyTermFont = () => { terminalBody.style.fontSize = termFontPx + 'px'; };
+  const fMinus = document.getElementById('btn-font-minus');
+  const fPlus = document.getElementById('btn-font-plus');
+  if (fMinus) fMinus.addEventListener('click', () => { termFontPx = Math.max(10, termFontPx - 1); applyTermFont(); });
+  if (fPlus) fPlus.addEventListener('click', () => { termFontPx = Math.min(20, termFontPx + 1); applyTermFont(); });
 
   // ----------------------------------------------------
   // 6. Render Output Results Dashboard
