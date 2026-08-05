@@ -3,7 +3,12 @@
 Model name is declared here in code (not in .env) per submission rules.
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()  # API keys only; model names are declared in this file, per submission rules.
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
@@ -17,15 +22,34 @@ POLICY_VERSION = "EC_POLICY_V2"
 COHORT = "K4"
 STARTER_REPO = "K4-Day9-Multi-Agent-A2A"
 
-# --- Local LLM (Ollama) ---
-# Imported from an existing LM Studio GGUF via `ollama create` (see scripts/setup_ollama_model.ps1).
-# 4B parameters, well under the 10B/agent limit; quantized Q4_K_M fits the 6GB VRAM laptop GPU.
+# --- LLM provider ---
+# Switch with EC_LLM_PROVIDER=ollama|openai (default below). Model NAMES live here
+# in code, per submission rules; only API keys come from .env.
+LLM_PROVIDER = os.environ.get("EC_LLM_PROVIDER", "openai").lower()
+LLM_TEMPERATURE = 0.1
+
+# Option A — local (Ollama). Imported from an existing LM Studio GGUF via
+# `ollama create` (scripts/setup_ollama_model.ps1). 4B parameters, provably
+# under the 10B/agent limit; Q4_K_M fits the 6GB VRAM laptop GPU.
 OLLAMA_HOST = "http://localhost:11434"
 OLLAMA_MODEL = "qwen3.5-4b-ec"
 OLLAMA_MODEL_PARAMS = "4B"
 OLLAMA_MODEL_QUANTIZATION = "Q4_K_M"
 OLLAMA_MODEL_SOURCE = "Qwen3.5-4B-GGUF (lmstudio-community), imported into Ollama from local GGUF"
-OLLAMA_TEMPERATURE = 0.1
+OLLAMA_TEMPERATURE = LLM_TEMPERATURE
+
+# Option B — hosted (OpenAI). Faster and far more reliable at tool calling than a
+# 4B local model. NOTE: OpenAI does not publish GPT-4o-mini's parameter count, so
+# the "<=10B parameters" rule cannot be *proven* for this option — it is declared
+# as undisclosed in metadata.json. Switch to the Ollama option above if that
+# constraint must be demonstrable.
+OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_MODEL_PARAMS = "undisclosed by provider (widely estimated ~8B)"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+
+def active_model_name() -> str:
+    return OPENAI_MODEL if LLM_PROVIDER == "openai" else OLLAMA_MODEL
 
 # --- MCP data server ---
 MCP_SERVER_HOST = "127.0.0.1"

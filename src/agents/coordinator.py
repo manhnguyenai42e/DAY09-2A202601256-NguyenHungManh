@@ -10,12 +10,27 @@ network hop on the batch entry point itself.
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 from typing import Any
 
 from src.a2a_common.protocol import AgentCard, HandoffPayload
-from src.agents.base import build_agent_app, send_handoff
+from src.agents.base import build_agent_app, ollama_generate, send_handoff
 from src.config import agent_url
+
+TRIAGE_PROMPT = (
+    "Bạn là agent điều phối (coordinator) của hệ thống điều tra khiếu nại thương mại điện tử. "
+    "Bạn vừa nhận một ticket khiếu nại. Dựa trên nội dung khiếu nại của khách, hãy nêu trong "
+    "1-2 câu tiếng Việt: cần tập trung điều tra những khía cạnh nào và giao việc cho các agent "
+    "chuyên trách nào (customer / order & product / payment / delivery). Không suy đoán kết luận."
+)
+
+SYNTHESIS_PROMPT = (
+    "Bạn là agent điều phối (coordinator) đang đóng hồ sơ một vụ khiếu nại thương mại điện tử. "
+    "Dưới đây là kết quả điều tra cuối cùng đã qua kiểm định. Hãy viết 1-2 câu tiếng Việt tổng "
+    "kết hồ sơ cho người đọc: vấn đề là gì, ai chịu trách nhiệm, xử lý ra sao. Không đổi số liệu, "
+    "không bịa thêm dữ kiện."
+)
 
 CARD = AgentCard(
     name="coordinator-agent",
@@ -55,10 +70,32 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
 
     import os as _os
 
-    base_facts = {
-        "order_id": order_id,
-        "skip_narration": bool(_os.environ.get("EC_SKIP_NARRATION")),
-    }
+    skip_narration = bool(_os.environ.get("EC_SKIP_NARRATION"))
+    base_facts = {"order_id": order_id, "skip_narration": skip_narration}
+
+    # Intake triage: the coordinator reasons about the incoming complaint and
+    # states what the investigation should focus on before dispatching work.
+    if skip_narration:
+        triage_note = ""
+    else:
+        try:
+            triage_note = await ollama_generate(
+                TRIAGE_PROMPT, json.dumps(ticket, ensure_ascii=False)
+            )
+        except Exception as exc:
+            triage_note = f"[triage unavailable: {exc}]"
+    trace.append({
+        "timestamp": _now(),
+        "case_id": case_id,
+        "agent": "coordinator_intake",
+        "question": "phân định trọng tâm điều tra và giao việc",
+        "facts_reported": ["order_id"],
+        "evidence_ids": [],
+        "missing": [],
+        "next_action": "dispatch to customer/order_product/payment/delivery in parallel",
+        "note": triage_note,
+    })
+
     (customer_resp, order_product_resp, payment_resp, delivery_resp) = await asyncio.gather(
         send_handoff(agent_url("customer"), handoff("resolve customer identity + history", base_facts)),
         send_handoff(agent_url("order_product"), handoff("resolve order/item/seller/product entities", base_facts)),
@@ -73,10 +110,8 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
     ]:
         trace.append(_trace_event(case_id, name, handoff("", base_facts), resp))
 
-    import os
-
     policy_facts = {
-        "skip_narration": bool(os.environ.get("EC_SKIP_NARRATION")),
+        "skip_narration": skip_narration,
         "order_id": order_id,
         "customer_context": customer_resp.facts.get("customer_context"),
         "affected_entities": order_product_resp.facts.get("affected_entities"),

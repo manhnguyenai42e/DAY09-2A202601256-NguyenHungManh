@@ -19,11 +19,14 @@ from src.agents.coordinator import run_case
 from src.config import (
     COHORT,
     INPUT_DIR,
+    LLM_PROVIDER,
     METADATA_PATH,
     OLLAMA_MODEL,
     OLLAMA_MODEL_PARAMS,
     OLLAMA_MODEL_QUANTIZATION,
     OLLAMA_MODEL_SOURCE,
+    OPENAI_MODEL,
+    OPENAI_MODEL_PARAMS,
     OUTPUT_DIR,
     POLICY_VERSION,
     STARTER_REPO,
@@ -82,19 +85,35 @@ async def main() -> None:
         "cohort": COHORT,
         "starter_repo": STARTER_REPO,
         "policy_version": POLICY_VERSION,
-        "model": {
-            "name": OLLAMA_MODEL,
-            "params": OLLAMA_MODEL_PARAMS,
-            "quantization": OLLAMA_MODEL_QUANTIZATION,
-            "source": OLLAMA_MODEL_SOURCE,
-            "runtime": "Ollama (local, http://localhost:11434)",
-            "used_by": (
-                "customer_agent, order_product_agent, payment_agent, delivery_agent, policy_agent "
-                "(mỗi agent 1 lời gọi/case với role prompt riêng); verifier_agent cố tình không "
-                "dùng LLM vì là cổng kiểm định cuối. Số học và định dạng evidence ID do MCP tool "
-                "tính deterministic."
-            ),
-        },
+        "model": (
+            {
+                "name": OPENAI_MODEL,
+                "params": OPENAI_MODEL_PARAMS,
+                "runtime": "OpenAI API (hosted)",
+                "compliance_note": (
+                    "Đề yêu cầu model <=10B tham số. OpenAI không công bố số tham số của "
+                    "gpt-4o-mini nên ràng buộc này không chứng minh được. Cấu hình thay thế "
+                    "chạy local (qwen3.5-4b-ec, 4B, chứng minh được) có sẵn: đặt "
+                    "EC_LLM_PROVIDER=ollama."
+                ),
+            }
+            if LLM_PROVIDER == "openai"
+            else {
+                "name": OLLAMA_MODEL,
+                "params": OLLAMA_MODEL_PARAMS,
+                "quantization": OLLAMA_MODEL_QUANTIZATION,
+                "source": OLLAMA_MODEL_SOURCE,
+                "runtime": "Ollama (local, http://localhost:11434)",
+            }
+        ),
+        "llm_usage": (
+            "Cả 7 agent đều dùng LLM. 6 agent nghiệp vụ chạy vòng lặp tool-calling thật: model "
+            "nhận schema các MCP tool được phép dùng, tự quyết định gọi tool nào với tham số gì; "
+            "hệ thống thực thi lời gọi đó lên MCP server và đưa kết quả thật về cho model. "
+            "Coordinator gọi LLM 2 lần (triage lúc nhận ticket, synthesis lúc đóng hồ sơ). "
+            "Mọi giá trị trong file output là output nguyên vẹn của MCP tool, không phải lời "
+            "model thuật lại — số học và định dạng evidence ID luôn deterministic."
+        ),
         "framework": {
             "orchestration": "hand-rolled A2A wire layer (Agent Card + JSON-RPC message/send) over Starlette/httpx",
             "data_access": "MCP (Model Context Protocol) server, streamable-http transport, mcp Python SDK",

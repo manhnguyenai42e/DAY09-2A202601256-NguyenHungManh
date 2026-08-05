@@ -11,10 +11,30 @@ Tài liệu này trả lời 3 câu hỏi: **có bao nhiêu agent**, **mỗi age
 | **Agent A2A** | **7** | 9100 – 9106 |
 | **MCP server** | **1** | 8765 |
 | **MCP tool** | **8** | (nằm trong MCP server) |
-| **Model LLM** | **1** (Qwen3.5-4B local) | Ollama :11434 |
-| Lời gọi LLM mỗi case | ~6 | (6 agent, mỗi agent 1 lần) |
+| **Model LLM** | **1** (`gpt-4o-mini`, đổi được sang local `qwen3.5-4b-ec`) | OpenAI API / Ollama :11434 |
+| Lời gọi LLM mỗi case | ~14 | (7 agent × ~2 vòng tool-calling) |
 
-Trong 7 agent: **1 điều phối** (Coordinator) + **4 điều tra** (Customer, Order&Product, Payment, Delivery) + **1 phán quyết** (Policy) + **1 kiểm định** (Verifier).
+Trong 7 agent: **1 điều phối** (Coordinator) + **4 điều tra** (Customer, Order&Product, Payment, Delivery) + **1 phán quyết** (Policy) + **1 kiểm định** (Verifier). **Cả 7 đều dùng LLM.**
+
+## Hai cơ chế giao tiếp — đừng nhầm lẫn
+
+**A2A = agent gọi agent** (HTTP giữa 2 service, KHÔNG có LLM):
+Coordinator gửi POST tới `http://127.0.0.1:9101/a2a` với gói JSON-RPC `message/send`. Agent kia nhận, xử lý, trả gói handoff. Thuần 2 chương trình nói chuyện qua mạng.
+
+**MCP = agent lấy dữ liệu** (LLM quyết định, 3 vòng):
+1. Agent đưa cho LLM danh sách tool nó **được phép** dùng + system prompt vai trò
+2. LLM trả về `tool_calls` — **tự chọn** gọi tool nào, tham số gì
+3. Agent thực thi lời gọi đó lên MCP server `:8765` → nhận dữ liệu thật → đưa lại cho LLM viết nhận định
+
+## Mỗi agent trả về 2 phần tách bạch
+
+| | `facts` | `note` |
+|---|---|---|
+| Nội dung | JSON có cấu trúc | Văn xuôi tiếng Việt |
+| Nguồn | **output nguyên vẹn của MCP tool** | LLM viết |
+| Đi vào đâu | **file output được chấm điểm** | chỉ `trace.jsonl` |
+
+Đây là ranh giới quan trọng nhất: LLM **quyết định gọi tool nào**, nhưng số liệu vào file output luôn là output nguyên vẹn của tool. Nếu LLM viết nhầm số trong `note` thì file output vẫn đúng — vì grader hard-gate cả case về 0 điểm chỉ vì lệch một xu.
 
 ---
 

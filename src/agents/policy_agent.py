@@ -8,43 +8,52 @@ from __future__ import annotations
 import json
 
 from src.a2a_common.protocol import AgentCard, HandoffPayload
-from src.agents.base import build_agent_app, call_tool, mcp_session, ollama_generate
+from src.agents.base import agent_tool_loop, build_agent_app, call_tool, mcp_session
 from src.config import agent_url
+
+ALLOWED_TOOLS = ["apply_policy"]
+
+SYSTEM = (
+    "Bạn là Policy Agent của bộ phận xử lý khiếu nại thương mại điện tử Olist, áp dụng "
+    "chính sách EC_POLICY_V2. Bạn nhận được bằng chứng do các agent chuyên trách thu thập. "
+    "Bạn có công cụ áp dụng chính sách — hãy gọi công cụ đó để lấy phán quyết chính thức "
+    "trên dữ liệu gốc; tuyệt đối không tự tính tiền, tự suy ra mã bằng chứng hay tự đặt "
+    "kết luận. Sau khi có kết quả, hãy giải thích 2-3 câu tiếng Việt vì sao phán quyết này "
+    "đúng theo bằng chứng, có trích dẫn các evidence ID trong kết quả."
+)
 
 CARD = AgentCard(
     name="policy-agent",
     description="Applies EC_POLICY_V2 to upstream facts and drafts the case rationale.",
     url=agent_url("policy"),
-    skills=["apply_policy"],
-)
-
-SYSTEM_PROMPT = (
-    "You are a policy compliance agent for an e-commerce dispute desk. "
-    "You are given a JSON object that is already the final, deterministic policy decision "
-    "(primary_issue, evidence_ids, refund, actions). Do not change any values or invent new "
-    "facts or evidence IDs. In 2-3 short sentences, explain in Vietnamese why this decision "
-    "follows from the evidence, citing the evidence IDs given. Output plain text only."
+    skills=ALLOWED_TOOLS,
 )
 
 
 async def handle(payload: HandoffPayload) -> HandoffPayload:
     order_id = payload.facts["order_id"]
-    async with mcp_session() as session:
-        case = await call_tool(session, "apply_policy", {"order_id": order_id})
+    skip = bool(payload.facts.get("skip_narration"))
+    upstream = {k: v for k, v in payload.facts.items()
+                if k not in ("order_id", "skip_narration")}
 
-    if payload.facts.get("skip_narration"):
-        note = "[narration skipped: fast iteration mode]"
-    else:
-        try:
-            note = await ollama_generate(SYSTEM_PROMPT, json.dumps(case, ensure_ascii=False))
-        except Exception as exc:  # local model unavailable/slow — never block the pipeline on narration
-            note = f"[narration unavailable: {exc}]"
+    async with mcp_session() as session:
+        note, collected, chosen = ("", {}, [])
+        if not skip:
+            user = (
+                f"Ticket cho đơn hàng order_id = {order_id}.\n"
+                f"Bằng chứng các agent đã thu thập:\n{json.dumps(upstream, ensure_ascii=False)}"
+            )
+            note, collected, chosen = await agent_tool_loop(SYSTEM, user, ALLOWED_TOOLS, session)
+        case = collected.get("apply_policy")
+        if case is None:
+            case = await call_tool(session, "apply_policy", {"order_id": order_id})
+            chosen = chosen or ["apply_policy (deterministic fallback)"]
 
     return HandoffPayload(
         ticket_id=payload.ticket_id,
         from_agent="policy",
         question=payload.question,
-        facts={"case": case},
+        facts={"case": case, "tools_called_by_llm": chosen},
         evidence_ids=case["evidence_ids"],
         missing=[],
         next_action="handoff to verifier",

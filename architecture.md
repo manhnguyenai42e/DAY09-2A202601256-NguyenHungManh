@@ -3,18 +3,36 @@
 Cohort **K4**, chính sách **EC_POLICY_V2**. **7 agent A2A** + **1 MCP server** (8 tool), toàn bộ chạy
 local với model **Qwen3.5-4B** qua Ollama.
 
-## 1. Nguyên tắc thiết kế: mỗi agent nghiệp vụ là một LLM agent, MCP tool là "giác quan"
+## 1. Nguyên tắc thiết kế: mọi agent đều là LLM agent với tool-calling thật
 
-Năm agent nghiệp vụ (Customer, Order & Product, Payment, Delivery, Policy) đều chạy chu trình 2 pha:
+**Cả 7 agent đều dùng LLM.** Sáu agent nghiệp vụ chạy vòng lặp tool-calling thật
+(`agent_tool_loop()` trong `src/agents/base.py`):
 
-1. **Grounding (bám dữ liệu)** — gọi MCP tool của riêng mình để lấy dữ kiện từ 9 file CSV gốc.
-   Agent **không được phép** bịa ra bất kỳ dữ kiện, mã ID hay con số nào không đến từ tool.
-2. **Reasoning (suy luận)** — đưa dữ kiện đó cho model Qwen3.5-4B local kèm **system prompt riêng
-   theo vai trò**, để model viết nhận định chuyên môn đi kèm trong `note` của gói handoff A2A
-   (hàm `agent_reflect()` trong `src/agents/base.py`).
+1. Hệ thống lấy schema các MCP tool mà agent **được phép** dùng (qua `list_tools`), chuyển thành
+   function-calling schema và đưa cho model cùng system prompt theo vai trò.
+2. **Model tự quyết định** gọi tool nào, với tham số gì. Hệ thống thực thi đúng lời gọi đó lên MCP
+   server và đưa **kết quả thật** về cho model.
+3. Model đọc kết quả và viết nhận định chuyên môn vào `note` của gói handoff A2A.
 
-Mỗi case vì vậy phát sinh **~6 lời gọi LLM** từ 6 agent khác nhau với 6 vai trò khác nhau, và tất cả
-đều được ghi vào `logging/trace.jsonl`.
+Trace ghi lại `tools_called_by_llm` cho từng agent — xem được chính xác model đã chọn gọi gì.
+
+Agent thứ 7 (Coordinator) dùng LLM ở 2 thời điểm: **triage** lúc nhận ticket (nêu trọng tâm điều
+tra) và **synthesis** lúc đóng hồ sơ.
+
+**Ranh giới quan trọng — `facts` và `note` tách bạch:**
+
+| | `facts` | `note` |
+|---|---|---|
+| Nội dung | JSON có cấu trúc | Văn xuôi tiếng Việt |
+| Nguồn | **output nguyên vẹn của MCP tool** | model viết |
+| Đi vào | **file output được chấm điểm** | chỉ `trace.jsonl` |
+
+Model **quyết định gọi tool nào**, nhưng con số đi vào file output luôn là output nguyên vẹn của
+tool — không phải lời model thuật lại. Nếu model diễn giải sai một chữ số trong `note` thì file
+output vẫn đúng. Đây là điều bắt buộc vì grader hard-gate cả case về 0 điểm chỉ vì lệch một xu.
+
+**Safety net**: nếu model không gọi tool (đôi khi xảy ra với model nhỏ), code gọi tool
+deterministic và ghi rõ `(deterministic fallback)` trong trace — không giấu.
 
 **Điều LLM cố tình KHÔNG được giao: số học và định dạng mã bằng chứng.**
 `EC_POLICY_V2` (README §4) là bảng luật đặc tả chính xác kèm công thức — không phải chỗ để phán đoán —
@@ -93,8 +111,19 @@ bài yêu cầu: `ticket_id`, `question` (câu hỏi được giao), `facts` (d�
 | Payment | 9103 | `get_payment_reconciliation`, `get_affected_entities` | `payment_reconciliation` | **Có** — nhận định thanh toán có khớp không, split payment hợp lệ không |
 | Delivery | 9104 | `get_delivery_analysis` | `delivery_analysis` | **Có** — nhận định trễ hay không, lỗi thuộc seller hay đơn vị vận chuyển |
 | Policy | 9105 | `apply_policy` | toàn bộ thân case (`case_assessment`, `root_cause_analysis`, `financial_resolution`, `resolution_actions`, `evidence_ids`) | **Có** — viết lập luận phán quyết, trích dẫn evidence ID |
-| Verifier | 9106 | `validate_case_output` | `{valid, violations}` — schema, trần mảng (README §6), đối chiếu evidence ID và entity với CSV gốc | **Không, có chủ đích** — cổng cuối không được phép ảo giác ra kết quả đạt |
-| Coordinator | 9100 | (chỉ đóng vai A2A client) | điều phối toàn bộ, ráp JSON cuối, ghi `output/` + `trace.jsonl` | Không — thuần điều phối |
+| Verifier | 9106 | `validate_case_output` | `{valid, violations}` — schema, trần mảng (README §6), đối chiếu evidence ID và entity với CSV gốc | **Có** — audit độc lập, nhưng **không có quyền quyết định PASS/FAIL** (xem mục 3.1) |
+| Coordinator | 9100 | (chỉ đóng vai A2A client) | điều phối toàn bộ, ráp JSON cuối, ghi `output/` + `trace.jsonl` | **Có** — triage lúc nhận ticket, synthesis lúc đóng hồ sơ |
+
+### 3.1. Verifier: hai lớp bất đối xứng
+
+- **Lớp 1 — code deterministic** (`validate_case_output`): kiểm schema, trần mảng, đối chiếu từng
+  evidence ID và entity với CSV gốc. **Chỉ lớp này quyết định PASS/FAIL.**
+- **Lớp 2 — LLM audit độc lập**: model đọc lại case, soát tính nhất quán nghiệp vụ (số tiền hoàn có
+  đúng loại vấn đề không, `case_status` có khớp không) — bắt được vấn đề *ngữ nghĩa* mà rule không
+  diễn đạt nổi. Nhận định của nó **thêm** phát hiện, không **xóa** được phát hiện của lớp 1.
+
+Vì sao bất đối xứng: nếu LLM được quyền lật FAIL→PASS thì một lần ảo giác là lọt case hỏng = 0 điểm.
+Code cho *precision* (không bao giờ lọt case sai), model cho *recall* (bắt thứ rule không mã hóa được).
 
 **Luồng xử lý một ticket**: Coordinator phát song song cho Customer / Order & Product / Payment /
 Delivery (`asyncio.gather` — bằng chứng độc lập nhau, không có ràng buộc thứ tự) → gộp dữ kiện, bàn
@@ -117,14 +146,25 @@ phòng thay vì khớp gọn một trong 6 điều kiện chính). Ghi rõ ở �
 
 ## 5. Model và môi trường chạy
 
-- **Model**: `qwen3.5-4b-ec` — Qwen3.5-4B-Q4_K_M, import vào Ollama từ file GGUF có sẵn của LM Studio
-  (`ollama/Modelfile.qwen35`) chứ không tải lại. **4B tham số**, thấp hơn nhiều so với trần 10B của đề;
-  vừa với 6GB VRAM của laptop.
-- **Được dùng bởi**: cả 5 agent nghiệp vụ (Customer, Order & Product, Payment, Delivery, Policy) — mỗi
-  agent một lời gọi có role prompt riêng cho mỗi case, tổng ~6 lời gọi LLM/case. Không bao giờ dùng cho
-  số học, ngưỡng phân loại hay định dạng evidence ID.
-- Khai báo trong code tại `src/config.py`, đồng bộ sang `logging/metadata.json` theo đúng quy định nộp
-  bài (không đặt trong `.env`).
+Hệ thống có **provider layer chuyển được** (`EC_LLM_PROVIDER` trong `src/config.py`), tên model khai
+báo trong code theo đúng quy định nộp bài; chỉ API key nằm trong `.env` (không commit).
+
+| | Option A — local | Option B — hosted (đang dùng) |
+|---|---|---|
+| Model | `qwen3.5-4b-ec` (Qwen3.5-4B-Q4_K_M) | `gpt-4o-mini` |
+| Tham số | **4B — chứng minh được ≤10B** | **không được nhà cung cấp công bố** |
+| Chạy ở | Ollama local, `localhost:11434` | OpenAI API |
+| Tool-calling | được, nhưng kém ổn định hơn | ổn định |
+| Tốc độ | ~30s/case | ~15s/case |
+
+**Lưu ý tuân thủ**: đề yêu cầu mỗi agent dùng model ≤10B tham số. Option A thỏa mãn hiển nhiên
+(model card ghi rõ 4B). Với Option B, OpenAI **không công bố** số tham số của GPT-4o-mini nên ràng
+buộc này **không chứng minh được** — điều này được khai báo trung thực trong `logging/metadata.json`.
+Chuyển về Option A bằng `EC_LLM_PROVIDER=ollama`, không cần sửa code.
+
+- **Được dùng bởi**: cả 7 agent. Sáu agent nghiệp vụ chạy vòng lặp tool-calling (model tự chọn tool),
+  Coordinator gọi 2 lần (triage + synthesis). Không bao giờ dùng cho số học, ngưỡng phân loại hay
+  định dạng evidence ID.
 - Nhiệt độ 0.1 vì đây là tác vụ kiểm toán/tuân thủ, cần ổn định thay vì sáng tạo.
 
 ## 6. Cách chạy

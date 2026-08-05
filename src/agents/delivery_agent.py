@@ -4,21 +4,42 @@ arithmetic is deterministic (MCP tool); the LLM reasons over the variances."""
 from __future__ import annotations
 
 from src.a2a_common.protocol import AgentCard, HandoffPayload
-from src.agents.base import agent_reflect, build_agent_app, call_tool, mcp_session
+from src.agents.base import agent_tool_loop, build_agent_app, call_tool, mcp_session
 from src.config import agent_url
+
+ALLOWED_TOOLS = ["get_delivery_analysis"]
+
+SYSTEM = (
+    "Bạn là Delivery Agent trong hệ thống điều tra khiếu nại thương mại điện tử Olist. "
+    "Nhiệm vụ: phân tích giao vận của đơn hàng. Bạn có công cụ tra cứu — hãy gọi công cụ "
+    "để lấy số liệu thật, tuyệt đối không tự tính hay bịa số. Sau đó nhận định 1-2 câu "
+    "tiếng Việt: đơn giao sớm hay trễ so với hẹn (delivery_variance_hours dương là trễ); "
+    "nếu trễ thì lỗi thuộc seller (có seller bàn giao muộn hơn shipping_limit_date) hay "
+    "thuộc đơn vị vận chuyển (không seller nào muộn)."
+)
 
 CARD = AgentCard(
     name="delivery-agent",
     description="Computes delivery variance and per-seller shipping-limit handoff variance.",
     url=agent_url("delivery"),
-    skills=["get_delivery_analysis"],
+    skills=ALLOWED_TOOLS,
 )
 
 
 async def handle(payload: HandoffPayload) -> HandoffPayload:
     order_id = payload.facts["order_id"]
+    skip = bool(payload.facts.get("skip_narration"))
+
     async with mcp_session() as session:
-        delivery = await call_tool(session, "get_delivery_analysis", {"order_id": order_id})
+        note, collected, chosen = ("", {}, [])
+        if not skip:
+            note, collected, chosen = await agent_tool_loop(
+                SYSTEM, f"Phân tích giao vận cho đơn hàng có order_id = {order_id}.",
+                ALLOWED_TOOLS, session,
+            )
+        delivery = collected.get("get_delivery_analysis")
+        if delivery is None:
+            delivery = await call_tool(session, "get_delivery_analysis", {"order_id": order_id})
 
     late_sellers = delivery.get("late_handoff_seller_ids", [])
     evidence = [f"seller:{sid}" for sid in late_sellers]
@@ -26,15 +47,10 @@ async def handle(payload: HandoffPayload) -> HandoffPayload:
     if delivery.get("delivered_at") is None:
         missing.append("order_delivered_customer_date is null: delivery lateness cannot be determined")
 
-    facts = {"delivery_analysis": {k: v for k, v in delivery.items() if k != "found"}}
-    note = await agent_reflect(
-        "phân tích giao vận: đơn giao sớm hay trễ so với hẹn (delivery_variance_hours "
-        "dương là trễ), và nếu trễ thì seller nào bàn giao cho carrier muộn hơn "
-        "shipping_limit_date (trách nhiệm seller) hay không seller nào muộn (trách nhiệm "
-        "đơn vị vận chuyển).",
-        facts,
-        skip=bool(payload.facts.get("skip_narration")),
-    )
+    facts = {
+        "delivery_analysis": {k: v for k, v in delivery.items() if k != "found"},
+        "tools_called_by_llm": chosen,
+    }
     return HandoffPayload(
         ticket_id=payload.ticket_id,
         from_agent="delivery",
