@@ -17,6 +17,6 @@ from src.web.server import run_server
 
 if __name__ == "__main__":
     port = 8000
-    print(f"🌐 Launching Multi-Agent Testing Dashboard at http://localhost:{port}...")
+    print(f"[DASHBOARD] Launching Multi-Agent Testing Dashboard at http://localhost:{port}...")
     webbrowser.open(f"http://localhost:{port}")
     run_server(port)
