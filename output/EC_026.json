@@ -66,6 +66,10 @@
       {
         "party_type": "platform",
         "party_id": "OLIST_PLATFORM"
+      },
+      {
+        "party_type": "seller",
+        "party_id": "8132b9bd16876e1b0f8808d43825dd48"
       }
     ]
   },
@@ -74,6 +78,7 @@
     "item:9b4fc5c379134e1329bd48641ba285e3:1",
     "item:9b4fc5c379134e1329bd48641ba285e3:2",
     "payment:9b4fc5c379134e1329bd48641ba285e3:1",
+    "seller:8132b9bd16876e1b0f8808d43825dd48",
     "policy:ORDER_CANCELED_AFTER_PAYMENT"
   ],
   "financial_resolution": {

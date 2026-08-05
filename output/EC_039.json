@@ -7,7 +7,7 @@
       "repeat_customer"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -42,12 +42,12 @@
     "delivered_at": "2018-03-31 13:51:44",
     "estimated_delivery_at": "2018-03-14 00:00:00",
     "carrier_handoff_at": "2018-02-21 09:26:40",
-    "delivery_variance_hours": 421.86,
+    "delivery_variance_hours": 421.35,
     "seller_handoff_analysis": [
       {
         "seller_id": "88460e8ebdecbfecb5f9601833981930",
         "shipping_limit_at": "2018-02-14 01:35:40",
-        "handoff_variance_hours": 175.85,
+        "handoff_variance_hours": 148,
         "late_handoff": true
       }
     ],

@@ -1,14 +1,14 @@
 {
   "case_id": "EC_008",
   "case_assessment": {
-    "primary_issue": "valid_split_payment",
+    "primary_issue": "late_delivery_logistics",
     "secondary_issues": [
       "multi_item_order",
       "multi_seller_order",
       "split_payment"
     ],
-    "case_status": "no_action",
-    "confidence": 0.95
+    "case_status": "action_required",
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -44,18 +44,18 @@
     "delivered_at": "2018-05-21 22:16:02",
     "estimated_delivery_at": "2018-05-25 00:00:00",
     "carrier_handoff_at": "2018-05-07 14:31:00",
-    "delivery_variance_hours": -73.73,
+    "delivery_variance_hours": -75.38,
     "seller_handoff_analysis": [
       {
         "seller_id": "6b3bd31ad8fcda4b2635ec9f3ff2ecdf",
         "shipping_limit_at": "2018-05-10 14:30:36",
-        "handoff_variance_hours": -71.99,
+        "handoff_variance_hours": -73.66,
         "late_handoff": false
       },
       {
         "seller_id": "c32fc744b9160ac853450488e3cfea93",
         "shipping_limit_at": "2018-05-10 14:30:36",
-        "handoff_variance_hours": -71.99,
+        "handoff_variance_hours": -73.66,
         "late_handoff": false
       }
     ],
@@ -77,11 +77,16 @@
   "root_cause_analysis": {
     "ranked_causes": [
       {
-        "cause_code": "MULTIPLE_PAYMENTS_RECONCILED",
+        "cause_code": "CARRIER_DELIVERED_AFTER_ESTIMATE",
         "rank": 1
       }
     ],
-    "responsible_parties": []
+    "responsible_parties": [
+      {
+        "party_type": "logistics_provider",
+        "party_id": "LOGISTICS_PROVIDER"
+      }
+    ]
   },
   "evidence_ids": [
     "order:23c312ca9f0242a48a95e5643bee2645",
@@ -89,14 +94,16 @@
     "item:23c312ca9f0242a48a95e5643bee2645:2",
     "payment:23c312ca9f0242a48a95e5643bee2645:1",
     "payment:23c312ca9f0242a48a95e5643bee2645:2",
-    "policy:MULTIPLE_PAYMENTS_RECONCILED"
+    "seller:6b3bd31ad8fcda4b2635ec9f3ff2ecdf",
+    "seller:c32fc744b9160ac853450488e3cfea93",
+    "policy:CARRIER_DELIVERED_AFTER_ESTIMATE"
   ],
   "financial_resolution": {
     "currency": "BRL",
-    "recommended_refund_brl": 0.0
+    "recommended_refund_brl": 34.93
   },
   "resolution_actions": [
-    "explain_valid_split_payment",
-    "coordinate_multi_seller_case"
+    "refund_freight",
+    "review_carrier_delay"
   ]
 }

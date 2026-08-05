@@ -8,7 +8,7 @@
       "repeat_customer"
     ],
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -46,12 +46,12 @@
     "delivered_at": "2017-12-20 17:22:29",
     "estimated_delivery_at": "2017-12-22 00:00:00",
     "carrier_handoff_at": "2017-11-29 21:11:41",
-    "delivery_variance_hours": -30.63,
+    "delivery_variance_hours": -30.62,
     "seller_handoff_analysis": [
       {
         "seller_id": "751bdc4d83a466c7206cd42e8f426b03",
         "shipping_limit_at": "2017-12-04 10:40:55",
-        "handoff_variance_hours": -109.49,
+        "handoff_variance_hours": -100.49,
         "late_handoff": false
       }
     ],

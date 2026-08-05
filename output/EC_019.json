@@ -7,7 +7,7 @@
       "repeat_customer"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -43,7 +43,7 @@
     "delivered_at": "2017-05-22 15:25:48",
     "estimated_delivery_at": "2017-05-10 00:00:00",
     "carrier_handoff_at": "2017-05-02 13:54:14",
-    "delivery_variance_hours": 303.43,
+    "delivery_variance_hours": 300.43,
     "seller_handoff_analysis": [
       {
         "seller_id": "4a3ca9315b744ce9f8e9374361493884",
@@ -96,6 +96,7 @@
   },
   "resolution_actions": [
     "refund_freight",
-    "review_seller_handoff"
+    "review_seller_handoff",
+    "verify_refund_completion"
   ]
 }

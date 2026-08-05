@@ -8,7 +8,7 @@
       "multiple_categories"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -49,13 +49,13 @@
       {
         "seller_id": "da8622b14eb17ae2831f4ac5b9dab84a",
         "shipping_limit_at": "2018-03-08 16:31:39",
-        "handoff_variance_hours": -62.97,
+        "handoff_variance_hours": -39.02,
         "late_handoff": false
       },
       {
         "seller_id": "95f83f51203c626648c875dd41874c7f",
         "shipping_limit_at": "2018-03-08 16:31:39",
-        "handoff_variance_hours": -62.97,
+        "handoff_variance_hours": -39.02,
         "late_handoff": false
       }
     ],
@@ -100,7 +100,6 @@
   },
   "resolution_actions": [
     "refund_freight",
-    "review_carrier_delay",
-    "coordinate_multi_seller_case"
+    "review_carrier_delay"
   ]
 }

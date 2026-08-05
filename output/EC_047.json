@@ -37,16 +37,16 @@
     ]
   },
   "delivery_analysis": {
-    "delivered_at": null,
+    "delivered_at": "null",
     "estimated_delivery_at": "2018-03-15 00:00:00",
     "carrier_handoff_at": "2018-02-20 18:58:43",
     "delivery_variance_hours": null,
     "seller_handoff_analysis": [
       {
+        "handoff_variance_hours": -69.35,
+        "late_handoff": false,
         "seller_id": "dbc22125167c298ef99da25668e1011f",
-        "shipping_limit_at": "2018-02-23 17:20:52",
-        "handoff_variance_hours": -70.37,
-        "late_handoff": false
+        "shipping_limit_at": "2018-02-23 17:20:52"
       }
     ],
     "late_handoff_seller_ids": []
@@ -57,7 +57,7 @@
     "freight_total_brl": 19.66,
     "expected_total_brl": 79.56,
     "payment_total_brl": 79.56,
-    "difference_brl": 0.0,
+    "difference_brl": 0,
     "reconciled": true,
     "payment_types": [
       "voucher"
@@ -72,8 +72,8 @@
     ],
     "responsible_parties": [
       {
-        "party_type": "platform",
-        "party_id": "OLIST_PLATFORM"
+        "party_id": "OLIST_PLATFORM",
+        "party_type": "platform"
       }
     ]
   },
@@ -81,6 +81,7 @@
     "order:2cfc79d9582e9135c0a9b61fa60e6b21",
     "item:2cfc79d9582e9135c0a9b61fa60e6b21:1",
     "payment:2cfc79d9582e9135c0a9b61fa60e6b21:1",
+    "seller:dbc22125167c298ef99da25668e1011f",
     "policy:ORDER_CANCELED_AFTER_PAYMENT"
   ],
   "financial_resolution": {

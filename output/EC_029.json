@@ -10,7 +10,7 @@
       "multiple_categories"
     ],
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -49,18 +49,18 @@
     "delivered_at": "2017-12-14 20:22:50",
     "estimated_delivery_at": "2017-12-27 00:00:00",
     "carrier_handoff_at": "2017-12-06 13:53:06",
-    "delivery_variance_hours": -291.62,
+    "delivery_variance_hours": -290.28,
     "seller_handoff_analysis": [
       {
         "seller_id": "4a3ca9315b744ce9f8e9374361493884",
         "shipping_limit_at": "2017-12-07 20:24:40",
-        "handoff_variance_hours": -30.53,
+        "handoff_variance_hours": -3.14,
         "late_handoff": false
       },
       {
         "seller_id": "d20b021d3efdf267a402c402a48ea64b",
         "shipping_limit_at": "2017-12-07 20:24:40",
-        "handoff_variance_hours": -30.53,
+        "handoff_variance_hours": -3.14,
         "late_handoff": false
       }
     ],
@@ -101,7 +101,6 @@
     "recommended_refund_brl": 0.0
   },
   "resolution_actions": [
-    "explain_valid_split_payment",
-    "coordinate_multi_seller_case"
+    "explain_valid_split_payment"
   ]
 }

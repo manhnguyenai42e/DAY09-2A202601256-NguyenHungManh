@@ -2,12 +2,9 @@
   "case_id": "EC_044",
   "case_assessment": {
     "primary_issue": "unsupported_late_claim",
-    "secondary_issues": [
-      "multi_item_order",
-      "multi_seller_order"
-    ],
+    "secondary_issues": [],
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -42,21 +39,8 @@
     "delivered_at": "2018-08-29 19:19:40",
     "estimated_delivery_at": "2018-09-14 00:00:00",
     "carrier_handoff_at": "2018-08-21 10:41:00",
-    "delivery_variance_hours": -364.67,
-    "seller_handoff_analysis": [
-      {
-        "seller_id": "2b3b9ce054da76a7428df143a567b156",
-        "shipping_limit_at": "2018-08-22 11:30:07",
-        "handoff_variance_hours": -24.82,
-        "late_handoff": false
-      },
-      {
-        "seller_id": "624f4ece8da4aafb77699233d480f8ef",
-        "shipping_limit_at": "2018-08-27 11:30:07",
-        "handoff_variance_hours": -144.82,
-        "late_handoff": false
-      }
-    ],
+    "delivery_variance_hours": -392,
+    "seller_handoff_analysis": [],
     "late_handoff_seller_ids": []
   },
   "payment_reconciliation": {
@@ -92,7 +76,6 @@
     "recommended_refund_brl": 0.0
   },
   "resolution_actions": [
-    "reject_late_refund",
-    "coordinate_multi_seller_case"
+    "reject_late_refund"
   ]
 }

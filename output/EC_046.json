@@ -41,13 +41,13 @@
     "delivered_at": "2017-06-08 05:47:38",
     "estimated_delivery_at": "2017-05-26 00:00:00",
     "carrier_handoff_at": "2017-05-17 10:03:46",
-    "delivery_variance_hours": 317.79,
+    "delivery_variance_hours": 317.78,
     "seller_handoff_analysis": [
       {
+        "handoff_variance_hours": 17.55,
+        "late_handoff": true,
         "seller_id": "cca3071e3e9bb7d12640c9fbe2301306",
-        "shipping_limit_at": "2017-05-16 16:30:12",
-        "handoff_variance_hours": 17.56,
-        "late_handoff": true
+        "shipping_limit_at": "2017-05-16 16:30:12"
       }
     ],
     "late_handoff_seller_ids": [
@@ -60,7 +60,7 @@
     "freight_total_brl": 25.52,
     "expected_total_brl": 145.32,
     "payment_total_brl": 145.32,
-    "difference_brl": 0.0,
+    "difference_brl": 0,
     "reconciled": true,
     "payment_types": [
       "credit_card",
@@ -76,8 +76,8 @@
     ],
     "responsible_parties": [
       {
-        "party_type": "seller",
-        "party_id": "cca3071e3e9bb7d12640c9fbe2301306"
+        "party_id": "cca3071e3e9bb7d12640c9fbe2301306",
+        "party_type": "seller"
       }
     ]
   },

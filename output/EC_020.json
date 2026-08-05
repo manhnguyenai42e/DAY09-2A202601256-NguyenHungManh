@@ -7,7 +7,7 @@
       "repeat_customer"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -48,7 +48,7 @@
       {
         "seller_id": "7c67e1448b00f6e969d365cea6b010ab",
         "shipping_limit_at": "2018-02-13 04:30:43",
-        "handoff_variance_hours": 156.8,
+        "handoff_variance_hours": 156.75,
         "late_handoff": true
       }
     ],
@@ -97,6 +97,7 @@
   },
   "resolution_actions": [
     "refund_freight",
-    "review_seller_handoff"
+    "review_seller_handoff",
+    "verify_refund_completion"
   ]
 }

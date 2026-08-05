@@ -6,7 +6,7 @@
       "repeat_customer"
     ],
     "case_status": "action_required",
-    "confidence": 0.75
+    "confidence": 0.95
   },
   "affected_entities": {
     "order_ids": [
@@ -29,17 +29,17 @@
     "category_names": []
   },
   "delivery_analysis": {
-    "delivered_at": null,
+    "delivered_at": "null",
     "estimated_delivery_at": "2017-11-10 00:00:00",
-    "carrier_handoff_at": null,
+    "carrier_handoff_at": "null",
     "delivery_variance_hours": null,
     "seller_handoff_analysis": [],
     "late_handoff_seller_ids": []
   },
   "payment_reconciliation": {
     "currency": "BRL",
-    "item_total_brl": 0.0,
-    "freight_total_brl": 0.0,
+    "item_total_brl": 0,
+    "freight_total_brl": 0,
     "expected_total_brl": null,
     "payment_total_brl": 18.37,
     "difference_brl": null,
@@ -57,8 +57,8 @@
     ],
     "responsible_parties": [
       {
-        "party_type": "platform",
-        "party_id": "OLIST_PLATFORM"
+        "party_id": "OLIST_PLATFORM",
+        "party_type": "platform"
       }
     ]
   },

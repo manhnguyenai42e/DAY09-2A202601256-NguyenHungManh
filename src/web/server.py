@@ -24,22 +24,28 @@ import asyncio
 from src.agents.coordinator import run_case
 from src.config import AGENT_PORTS, INPUT_DIR
 
-# Real MCP tools each agent calls (must match the agent implementations in
-# src/agents/*.py — no invented tool names).
+# Real MCP tools each agent may call (must match ALLOWED_TOOLS + FINAL_TOOL in
+# the agent implementations under src/agents/*.py — no invented tool names).
+# The model chooses which of these to actually call at runtime; this list is
+# the permitted set, not a fixed sequence.
 AGENT_MCP_TOOLS = {
-    "customer": ["get_customer_context"],
-    "order_product": ["get_affected_entities", "get_product_context"],
-    "payment": ["get_payment_reconciliation", "get_affected_entities"],
-    "delivery": ["get_delivery_analysis"],
-    "policy": ["apply_policy"],
-    "policy_retry": ["apply_policy"],
+    "customer": ["get_customer", "get_related_orders", "report_customer"],
+    "order_product": ["get_order_items", "get_products", "report_order_product"],
+    "payment": ["get_order_items", "get_order_payments", "report_payment"],
+    "delivery": ["get_order", "get_order_items", "report_delivery"],
+    "policy": ["get_policy_rulebook", "get_order", "report_case"],
+    "policy_retry": ["get_policy_rulebook", "get_order", "report_case"],
     "verifier": ["validate_case_output"],
     "verifier_retry": ["validate_case_output"],
     "coordinator": [],
+    "coordinator_intake": [],
+    "coordinator_synthesis": [],
 }
 
 AGENT_DISPLAY = {
     "coordinator": "Coordinator Agent",
+    "coordinator_intake": "Coordinator Agent (triage)",
+    "coordinator_synthesis": "Coordinator Agent (synthesis)",
     "customer": "Customer Agent",
     "order_product": "Order & Product Agent",
     "payment": "Payment Agent",

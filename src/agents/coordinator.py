@@ -1,10 +1,19 @@
 """Coordinator: the A2A client that sequences the other 6 agents for one
 ticket. Customer / Order&Product / Payment / Delivery run in parallel
-(independent evidence gathering), then Policy, then Verifier — with one
-bounded retry back to Policy if the Verifier finds violations. Also exposed
-as its own A2A service (agent card + /a2a) for architectural symmetry, but
-`run_case` is called in-process by scripts/run_batch.py to avoid an extra
-network hop on the batch entry point itself.
+(independent evidence gathering, each self-computing its own numbers), then
+Policy, then Verifier — with one bounded retry of the *entire* investigation
+(all 4 domain agents + Policy, fresh) if the Verifier finds violations. A
+full retry, not just a Policy retry, matters here: the Verifier's audit can
+catch a mistake that originated in a domain agent (e.g. a sign error in
+Delivery Agent's own date-arithmetic) which re-running Policy alone — it
+only reasons over facts already handed to it — could never fix. Also
+exposed as its own A2A service (agent card + /a2a) for architectural
+symmetry, but `run_case` is called in-process by scripts/run_batch.py to
+avoid an extra network hop on the batch entry point itself.
+
+The Coordinator itself never computes or decides any business value — it
+only routes payloads between agents and merges their already-authored
+sub-objects into the final case shape (README section 6 key order).
 """
 
 from __future__ import annotations
@@ -60,41 +69,50 @@ def _trace_event(case_id: str, agent: str, req: HandoffPayload, resp: HandoffPay
     }
 
 
-async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    case_id = ticket["case_id"]
-    order_id = ticket["customer_request"]["claimed_order_id"]
-    trace: list[dict[str, Any]] = []
+def _assemble_case(
+    case_id: str,
+    order_id: str,
+    customer_resp: HandoffPayload,
+    order_product_resp: HandoffPayload,
+    payment_resp: HandoffPayload,
+    delivery_resp: HandoffPayload,
+    policy_resp: HandoffPayload,
+) -> dict[str, Any]:
+    """Pure plumbing: copy each agent's self-authored sub-object into the
+    README section 6 shape. No value is computed or altered here."""
+    affected_entities = {
+        "order_ids": [order_id],
+        "item_ids": order_product_resp.facts["affected_entities"]["item_ids"],
+        "seller_ids": order_product_resp.facts["affected_entities"]["seller_ids"],
+        "payment_ids": payment_resp.facts["payment_ids"],
+    }
+    return {
+        "case_id": case_id,
+        "case_assessment": policy_resp.facts["case_assessment"],
+        "affected_entities": affected_entities,
+        "customer_context": customer_resp.facts["customer_context"],
+        "product_context": order_product_resp.facts["product_context"],
+        "delivery_analysis": delivery_resp.facts["delivery_analysis"],
+        "payment_reconciliation": payment_resp.facts["payment_reconciliation"],
+        "root_cause_analysis": policy_resp.facts["root_cause_analysis"],
+        "evidence_ids": policy_resp.evidence_ids,
+        "financial_resolution": policy_resp.facts["financial_resolution"],
+        "resolution_actions": policy_resp.facts["resolution_actions"],
+    }
+
+
+async def _investigate(
+    case_id: str, order_id: str, trace: list[dict[str, Any]], suffix: str = ""
+) -> dict[str, Any]:
+    """One full pass: dispatch all 4 domain agents fresh (parallel), hand
+    their self-computed facts to Policy, assemble the case. Used for both the
+    initial attempt and each retry — a retry re-runs everything, not just
+    Policy, since a Verifier finding can originate in any domain agent."""
 
     def handoff(question: str, facts: dict[str, Any], from_agent: str = "coordinator") -> HandoffPayload:
         return HandoffPayload(ticket_id=case_id, from_agent=from_agent, question=question, facts=facts)
 
-    import os as _os
-
-    skip_narration = bool(_os.environ.get("EC_SKIP_NARRATION"))
-    base_facts = {"order_id": order_id, "skip_narration": skip_narration}
-
-    # Intake triage: the coordinator reasons about the incoming complaint and
-    # states what the investigation should focus on before dispatching work.
-    if skip_narration:
-        triage_note = ""
-    else:
-        try:
-            triage_note = await ollama_generate(
-                TRIAGE_PROMPT, json.dumps(ticket, ensure_ascii=False)
-            )
-        except Exception as exc:
-            triage_note = f"[triage unavailable: {exc}]"
-    trace.append({
-        "timestamp": _now(),
-        "case_id": case_id,
-        "agent": "coordinator_intake",
-        "question": "phân định trọng tâm điều tra và giao việc",
-        "facts_reported": ["order_id"],
-        "evidence_ids": [],
-        "missing": [],
-        "next_action": "dispatch to customer/order_product/payment/delivery in parallel",
-        "note": triage_note,
-    })
+    base_facts = {"order_id": order_id}
 
     (customer_resp, order_product_resp, payment_resp, delivery_resp) = await asyncio.gather(
         send_handoff(agent_url("customer"), handoff("resolve customer identity + history", base_facts)),
@@ -108,55 +126,93 @@ async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[st
         ("payment", payment_resp),
         ("delivery", delivery_resp),
     ]:
-        trace.append(_trace_event(case_id, name, handoff("", base_facts), resp))
+        trace.append(_trace_event(case_id, name + suffix, handoff("", base_facts), resp))
 
     policy_facts = {
-        "skip_narration": skip_narration,
         "order_id": order_id,
-        "customer_context": customer_resp.facts.get("customer_context"),
-        "affected_entities": order_product_resp.facts.get("affected_entities"),
-        "product_context": order_product_resp.facts.get("product_context"),
-        "payment_reconciliation": payment_resp.facts.get("payment_reconciliation"),
-        "delivery_analysis": delivery_resp.facts.get("delivery_analysis"),
+        "customer_context": customer_resp.facts["customer_context"],
+        "affected_entities": {
+            **order_product_resp.facts["affected_entities"],
+            "payment_ids": payment_resp.facts["payment_ids"],
+        },
+        "product_context": order_product_resp.facts["product_context"],
+        "payment_reconciliation": payment_resp.facts["payment_reconciliation"],
+        "delivery_analysis": delivery_resp.facts["delivery_analysis"],
     }
     policy_req = handoff("apply EC_POLICY_V2 and draft rationale", policy_facts)
     policy_resp = await send_handoff(agent_url("policy"), policy_req)
-    trace.append(_trace_event(case_id, "policy", policy_req, policy_resp))
+    trace.append(_trace_event(case_id, "policy" + suffix, policy_req, policy_resp))
 
-    verifier_req = handoff(
-        "verify schema, limits and evidence grounding",
-        {"case": policy_resp.facts["case"], "skip_narration": base_facts["skip_narration"]},
-    )
+    return _assemble_case(case_id, order_id, customer_resp, order_product_resp, payment_resp, delivery_resp, policy_resp)
+
+
+async def run_case(ticket: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    case_id = ticket["case_id"]
+    order_id = ticket["customer_request"]["claimed_order_id"]
+    trace: list[dict[str, Any]] = []
+
+    def handoff(question: str, facts: dict[str, Any], from_agent: str = "coordinator") -> HandoffPayload:
+        return HandoffPayload(ticket_id=case_id, from_agent=from_agent, question=question, facts=facts)
+
+    # Intake triage: the coordinator reasons about the incoming complaint and
+    # states what the investigation should focus on before dispatching work.
+    try:
+        triage_note = await ollama_generate(TRIAGE_PROMPT, json.dumps(ticket, ensure_ascii=False))
+    except Exception as exc:
+        triage_note = f"[triage unavailable: {exc}]"
+    trace.append({
+        "timestamp": _now(),
+        "case_id": case_id,
+        "agent": "coordinator_intake",
+        "question": "phân định trọng tâm điều tra và giao việc",
+        "facts_reported": ["order_id"],
+        "evidence_ids": [],
+        "missing": [],
+        "next_action": "dispatch to customer/order_product/payment/delivery in parallel",
+        "note": triage_note,
+    })
+
+    case = await _investigate(case_id, order_id, trace)
+
+    verifier_req = handoff("verify schema, limits and evidence grounding", {"case": case})
     verifier_resp = await send_handoff(agent_url("verifier"), verifier_req)
     trace.append(_trace_event(case_id, "verifier", verifier_req, verifier_resp))
 
     retries = 0
     while not verifier_resp.facts.get("valid", True) and retries < MAX_VERIFIER_RETRIES:
         retries += 1
-        policy_resp = await send_handoff(agent_url("policy"), policy_req)
-        trace.append(_trace_event(case_id, "policy_retry", policy_req, policy_resp))
-        verifier_req = handoff(
-            "re-verify after policy retry",
-            {"case": policy_resp.facts["case"], "skip_narration": base_facts["skip_narration"]},
-        )
+        case = await _investigate(case_id, order_id, trace, suffix="_retry")
+        verifier_req = handoff("re-verify after full retry", {"case": case})
         verifier_resp = await send_handoff(agent_url("verifier"), verifier_req)
         trace.append(_trace_event(case_id, "verifier_retry", verifier_req, verifier_resp))
 
-    case = dict(policy_resp.facts["case"])
-    case["case_id"] = case_id
-    # README section 6 lists case_id first; keep field order stable/readable.
-    case = {"case_id": case["case_id"], **{k: v for k, v in case.items() if k != "case_id"}}
+    # Prefer the Verifier's copy: it is the one that carries the definitive case_id.
+    case = dict(verifier_resp.facts.get("verified_case") or case)
 
     if not verifier_resp.facts.get("valid", True):
-        trace.append(
-            {
-                "timestamp": _now(),
-                "case_id": case_id,
-                "agent": "coordinator",
-                "question": "final gate",
-                "note": "UNRESOLVED VERIFIER VIOLATIONS after retry: " + "; ".join(verifier_resp.missing),
-            }
-        )
+        trace.append({
+            "timestamp": _now(),
+            "case_id": case_id,
+            "agent": "coordinator",
+            "question": "final gate",
+            "note": "UNRESOLVED VERIFIER VIOLATIONS after retry: " + "; ".join(verifier_resp.missing),
+        })
+
+    try:
+        synthesis_note = await ollama_generate(SYNTHESIS_PROMPT, json.dumps(case, ensure_ascii=False))
+    except Exception as exc:
+        synthesis_note = f"[synthesis unavailable: {exc}]"
+    trace.append({
+        "timestamp": _now(),
+        "case_id": case_id,
+        "agent": "coordinator_synthesis",
+        "question": "tổng kết hồ sơ đã kiểm định",
+        "facts_reported": [],
+        "evidence_ids": case.get("evidence_ids", []),
+        "missing": [],
+        "next_action": "closed",
+        "note": synthesis_note,
+    })
 
     return case, trace
 

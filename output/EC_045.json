@@ -36,27 +36,27 @@
       "78efe838c04bbc568be034082200ac20"
     ],
     "category_names": [
-      "cama_mesa_banho",
-      "moveis_decoracao"
+      "moveis_decoracao",
+      "cama_mesa_banho"
     ]
   },
   "delivery_analysis": {
     "delivered_at": "2018-05-03 19:11:31",
     "estimated_delivery_at": "2018-05-22 00:00:00",
     "carrier_handoff_at": "2018-05-02 14:24:00",
-    "delivery_variance_hours": -436.81,
+    "delivery_variance_hours": -412.8,
     "seller_handoff_analysis": [
       {
+        "handoff_variance_hours": -51.1,
+        "late_handoff": false,
         "seller_id": "da8622b14eb17ae2831f4ac5b9dab84a",
-        "shipping_limit_at": "2018-05-04 17:30:27",
-        "handoff_variance_hours": -51.11,
-        "late_handoff": false
+        "shipping_limit_at": "2018-05-04 17:30:27"
       },
       {
-        "seller_id": "0241d4d5d36f10f80c644447315af0bd",
-        "shipping_limit_at": "2018-05-04 17:30:27",
-        "handoff_variance_hours": -51.11,
-        "late_handoff": false
+        "handoff_variance_hours": -51.1,
+        "late_handoff": false,
+        "seller_id": "0241d4d5d36f10f80c64447315af0bd",
+        "shipping_limit_at": "2018-05-04 17:30:27"
       }
     ],
     "late_handoff_seller_ids": []
@@ -67,7 +67,7 @@
     "freight_total_brl": 33.56,
     "expected_total_brl": 233.36,
     "payment_total_brl": 233.36,
-    "difference_brl": 0.0,
+    "difference_brl": 0,
     "reconciled": true,
     "payment_types": [
       "credit_card"
@@ -91,10 +91,9 @@
   ],
   "financial_resolution": {
     "currency": "BRL",
-    "recommended_refund_brl": 0.0
+    "recommended_refund_brl": 0
   },
   "resolution_actions": [
-    "reject_late_refund",
-    "coordinate_multi_seller_case"
+    "reject_late_refund"
   ]
 }

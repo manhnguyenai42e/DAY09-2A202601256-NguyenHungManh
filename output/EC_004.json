@@ -2,9 +2,7 @@
   "case_id": "EC_004",
   "case_assessment": {
     "primary_issue": "canceled_order_paid",
-    "secondary_issues": [
-      "multi_item_order"
-    ],
+    "secondary_issues": [],
     "case_status": "action_required",
     "confidence": 0.95
   },
@@ -74,6 +72,7 @@
     "item:5d9c5817e278892b7498d90bfa28ade8:1",
     "item:5d9c5817e278892b7498d90bfa28ade8:2",
     "payment:5d9c5817e278892b7498d90bfa28ade8:1",
+    "seller:340636a908b13bbe0f4fb63fbe1d0c03",
     "policy:ORDER_CANCELED_AFTER_PAYMENT"
   ],
   "financial_resolution": {

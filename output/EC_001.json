@@ -7,7 +7,7 @@
       "repeat_customer"
     ],
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -43,12 +43,12 @@
     "delivered_at": "2018-06-19 01:28:42",
     "estimated_delivery_at": "2018-06-26 00:00:00",
     "carrier_handoff_at": "2018-06-15 14:15:00",
-    "delivery_variance_hours": -166.52,
+    "delivery_variance_hours": -120.0,
     "seller_handoff_analysis": [
       {
         "seller_id": "c70c1b0d8ca86052f45a432a38b73958",
         "shipping_limit_at": "2018-06-18 07:57:36",
-        "handoff_variance_hours": -65.71,
+        "handoff_variance_hours": -1.0,
         "late_handoff": false
       }
     ],
@@ -60,7 +60,7 @@
     "freight_total_brl": 16.7,
     "expected_total_brl": 237.34,
     "payment_total_brl": 237.34,
-    "difference_brl": 0.0,
+    "difference_brl": 0,
     "reconciled": true,
     "payment_types": [
       "credit_card"

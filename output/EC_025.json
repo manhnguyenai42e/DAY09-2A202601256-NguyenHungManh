@@ -1,13 +1,13 @@
 {
   "case_id": "EC_025",
   "case_assessment": {
-    "primary_issue": "unsupported_late_claim",
+    "primary_issue": "late_delivery_seller",
     "secondary_issues": [
       "multi_item_order",
       "repeat_customer"
     ],
-    "case_status": "no_action",
-    "confidence": 0.95
+    "case_status": "action_required",
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -42,16 +42,18 @@
     "delivered_at": "2017-10-12 17:43:26",
     "estimated_delivery_at": "2017-10-27 00:00:00",
     "carrier_handoff_at": "2017-10-09 21:24:10",
-    "delivery_variance_hours": -342.28,
+    "delivery_variance_hours": 342.72,
     "seller_handoff_analysis": [
       {
         "seller_id": "1f50f920176fa81dab994f9023523100",
         "shipping_limit_at": "2017-10-10 18:28:22",
-        "handoff_variance_hours": -21.07,
-        "late_handoff": false
+        "handoff_variance_hours": 21.07,
+        "late_handoff": true
       }
     ],
-    "late_handoff_seller_ids": []
+    "late_handoff_seller_ids": [
+      "1f50f920176fa81dab994f9023523100"
+    ]
   },
   "payment_reconciliation": {
     "currency": "BRL",
@@ -68,24 +70,32 @@
   "root_cause_analysis": {
     "ranked_causes": [
       {
-        "cause_code": "DELIVERY_WITHIN_ESTIMATE",
+        "cause_code": "SELLER_HANDOFF_AFTER_LIMIT",
         "rank": 1
       }
     ],
-    "responsible_parties": []
+    "responsible_parties": [
+      {
+        "party_type": "seller",
+        "party_id": "1f50f920176fa81dab994f9023523100"
+      }
+    ]
   },
   "evidence_ids": [
     "order:4cf6a6de996beb9d4b190c7983be98d9",
     "item:4cf6a6de996beb9d4b190c7983be98d9:1",
     "item:4cf6a6de996beb9d4b190c7983be98d9:2",
     "payment:4cf6a6de996beb9d4b190c7983be98d9:1",
-    "policy:DELIVERY_WITHIN_ESTIMATE"
+    "seller:1f50f920176fa81dab994f9023523100",
+    "policy:SELLER_HANDOFF_AFTER_LIMIT"
   ],
   "financial_resolution": {
     "currency": "BRL",
-    "recommended_refund_brl": 0.0
+    "recommended_refund_brl": 26.88
   },
   "resolution_actions": [
-    "reject_late_refund"
+    "refund_freight",
+    "review_seller_handoff",
+    "verify_refund_completion"
   ]
 }

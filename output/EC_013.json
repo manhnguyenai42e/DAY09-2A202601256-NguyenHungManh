@@ -7,7 +7,7 @@
       "split_payment"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -42,7 +42,7 @@
     "delivered_at": "2017-12-11 19:17:19",
     "estimated_delivery_at": "2017-12-07 00:00:00",
     "carrier_handoff_at": "2017-11-21 20:16:07",
-    "delivery_variance_hours": 115.29,
+    "delivery_variance_hours": 115.28,
     "seller_handoff_analysis": [
       {
         "seller_id": "4d6d651bd7684af3fffabd5f08d12e5a",
@@ -98,6 +98,6 @@
   "resolution_actions": [
     "refund_freight",
     "review_seller_handoff",
-    "verify_payment_allocation"
+    "verify_refund_completion"
   ]
 }

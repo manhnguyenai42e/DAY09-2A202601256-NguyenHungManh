@@ -8,7 +8,6 @@ A2A agent services)."""
 import argparse
 import asyncio
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -27,6 +26,8 @@ from src.config import (
     OLLAMA_MODEL_SOURCE,
     OPENAI_MODEL,
     OPENAI_MODEL_PARAMS,
+    OPENROUTER_MODEL,
+    OPENROUTER_MODEL_PARAMS,
     OUTPUT_DIR,
     POLICY_VERSION,
     STARTER_REPO,
@@ -37,15 +38,24 @@ from src.config import (
 async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--parallel", type=int, default=6, help="concurrent cases (1 = sequential)")
-    parser.add_argument("--fast", action="store_true",
-                        help="skip LLM narration (trace note only; scored JSON is unaffected) for quick iterations")
+    parser.add_argument("--start", type=int, default=0, help="slice: first ticket index (sorted, 0-based)")
+    parser.add_argument("--end", type=int, default=None, help="slice: ticket index to stop before (exclusive)")
+    parser.add_argument("--cases", type=str, default=None, help="comma-separated case_ids to run instead of a slice, e.g. EC_001,EC_004")
+    parser.add_argument("--trace-out", type=Path, default=None, help="override trace.jsonl path (for split multi-lane runs)")
+    parser.add_argument("--metadata-out", type=Path, default=None, help="override metadata.json path (for split multi-lane runs)")
     args = parser.parse_args()
-    if args.fast:
-        os.environ["EC_SKIP_NARRATION"] = "1"
 
-    tickets = sorted(INPUT_DIR.glob("EC_*.json"))
-    if len(tickets) != 50:
-        print(f"WARNING: expected 50 input tickets, found {len(tickets)}")
+    all_tickets = sorted(INPUT_DIR.glob("EC_*.json"))
+    if len(all_tickets) != 50:
+        print(f"WARNING: expected 50 input tickets, found {len(all_tickets)}")
+    if args.cases:
+        wanted = set(args.cases.split(","))
+        tickets = [p for p in all_tickets if p.stem in wanted]
+    else:
+        tickets = all_tickets[args.start:args.end]
+
+    trace_path = args.trace_out or TRACE_PATH
+    metadata_path = args.metadata_out or METADATA_PATH
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     trace_by_case: dict[str, list[dict]] = {}
@@ -77,7 +87,7 @@ async def main() -> None:
     await asyncio.gather(*(process(p) for p in tickets))
     all_trace = [ev for cid in sorted(trace_by_case) for ev in trace_by_case[cid]]
 
-    with TRACE_PATH.open("w", encoding="utf-8") as f:
+    with trace_path.open("w", encoding="utf-8") as f:
         for event in all_trace:
             f.write(json.dumps(event, ensure_ascii=False) + "\n")
 
@@ -91,13 +101,20 @@ async def main() -> None:
                 "params": OPENAI_MODEL_PARAMS,
                 "runtime": "OpenAI API (hosted)",
                 "compliance_note": (
-                    "Đề yêu cầu model <=10B tham số. OpenAI không công bố số tham số của "
-                    "gpt-4o-mini nên ràng buộc này không chứng minh được. Cấu hình thay thế "
-                    "chạy local (qwen3.5-4b-ec, 4B, chứng minh được) có sẵn: đặt "
-                    "EC_LLM_PROVIDER=ollama."
+                    "Đề yêu cầu model <=10B tham số. OpenAI không công bố chính thức số tham "
+                    "số của gpt-4o-mini (chỉ có ước tính ~8B từ một paper nghiên cứu của "
+                    "Microsoft, không phải công bố chính thức) nên ràng buộc này không chứng "
+                    "minh được chắc chắn. Cấu hình mặc định dùng OpenRouter/Qwen3-8B "
+                    "(8B, có model card chính thức từ Qwen) hoặc local qwen3.5-4b-ec (4.2B)."
                 ),
             }
             if LLM_PROVIDER == "openai"
+            else {
+                "name": OPENROUTER_MODEL,
+                "params": OPENROUTER_MODEL_PARAMS,
+                "runtime": "OpenRouter API (hosted, OpenAI-compatible)",
+            }
+            if LLM_PROVIDER == "openrouter"
             else {
                 "name": OLLAMA_MODEL,
                 "params": OLLAMA_MODEL_PARAMS,
@@ -107,12 +124,17 @@ async def main() -> None:
             }
         ),
         "llm_usage": (
-            "Cả 7 agent đều dùng LLM. 6 agent nghiệp vụ chạy vòng lặp tool-calling thật: model "
-            "nhận schema các MCP tool được phép dùng, tự quyết định gọi tool nào với tham số gì; "
-            "hệ thống thực thi lời gọi đó lên MCP server và đưa kết quả thật về cho model. "
-            "Coordinator gọi LLM 2 lần (triage lúc nhận ticket, synthesis lúc đóng hồ sơ). "
-            "Mọi giá trị trong file output là output nguyên vẹn của MCP tool, không phải lời "
-            "model thuật lại — số học và định dạng evidence ID luôn deterministic."
+            "Cả 7 agent đều dùng LLM, không có hàm Python nào tính hộ nội dung nghiệp vụ. Các "
+            "MCP tool chỉ trả dữ liệu thô lọc theo khóa từ CSV gốc (không sum, không trừ ngày "
+            "giờ, không dựng evidence ID, không phân loại). 6 agent nghiệp vụ chạy vòng lặp "
+            "tool-calling thật: model tự gọi tool dữ liệu thô cần thiết, rồi TỰ tính toán (cộng "
+            "tiền, trừ giờ, định dạng evidence ID, chọn primary_issue theo bảng luật...) và tự "
+            "nộp kết quả có cấu trúc qua một tool nội bộ (report_*) — hệ thống chỉ bắt lấy đúng "
+            "arguments model đưa ra, không sửa. Coordinator gọi LLM 2 lần (triage lúc nhận "
+            "ticket, synthesis lúc đóng hồ sơ) và chỉ ghép các sub-object các agent đã tự tính "
+            "lại theo đúng schema, không tính toán. Lớp deterministic DUY NHẤT còn lại là "
+            "Verifier's validate_case_output: kiểm schema/trần mảng/evidence tồn tại trong CSV "
+            "— chỉ pass/fail, không bao giờ điền hay sửa giá trị."
         ),
         "framework": {
             "orchestration": "hand-rolled A2A wire layer (Agent Card + JSON-RPC message/send) over Starlette/httpx",
@@ -126,7 +148,7 @@ async def main() -> None:
         "cases_failed": failures,
         "total_runtime_seconds": round(time.time() - t_start, 1),
     }
-    METADATA_PATH.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+    metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"\nDone. {len(tickets) - len(failures)}/{len(tickets)} cases written to {OUTPUT_DIR}")
     if failures:

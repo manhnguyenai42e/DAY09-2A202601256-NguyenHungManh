@@ -7,7 +7,7 @@
       "repeat_customer"
     ],
     "case_status": "action_required",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -84,6 +84,7 @@
     "item:6c1798a95735e69db81fe92f8c40bdb4:1",
     "item:6c1798a95735e69db81fe92f8c40bdb4:2",
     "payment:6c1798a95735e69db81fe92f8c40bdb4:1",
+    "seller:3df020b72d3d44b3af9d110fa3940b65",
     "policy:CARRIER_DELIVERED_AFTER_ESTIMATE"
   ],
   "financial_resolution": {
@@ -91,7 +92,6 @@
     "recommended_refund_brl": 32.22
   },
   "resolution_actions": [
-    "refund_freight",
-    "review_carrier_delay"
+    "refund_freight"
   ]
 }

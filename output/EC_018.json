@@ -7,7 +7,7 @@
       "multi_seller_order"
     ],
     "case_status": "no_action",
-    "confidence": 0.95
+    "confidence": 0.9
   },
   "affected_entities": {
     "order_ids": [
@@ -42,18 +42,18 @@
     "delivered_at": "2018-07-23 15:51:06",
     "estimated_delivery_at": "2018-08-07 00:00:00",
     "carrier_handoff_at": "2018-07-18 12:06:00",
-    "delivery_variance_hours": -344.15,
+    "delivery_variance_hours": -338.15,
     "seller_handoff_analysis": [
       {
         "seller_id": "ccc4bbb5f32a6ab2b7066a4130f114e3",
         "shipping_limit_at": "2018-07-19 04:31:53",
-        "handoff_variance_hours": -16.43,
+        "handoff_variance_hours": -32.42,
         "late_handoff": false
       },
       {
         "seller_id": "f7ba60f8c3f99e7ee4042fdef03b70c4",
         "shipping_limit_at": "2018-07-20 04:31:53",
-        "handoff_variance_hours": -40.43,
+        "handoff_variance_hours": null,
         "late_handoff": false
       }
     ],
@@ -92,7 +92,6 @@
     "recommended_refund_brl": 0.0
   },
   "resolution_actions": [
-    "reject_late_refund",
-    "coordinate_multi_seller_case"
+    "reject_late_refund"
   ]
 }

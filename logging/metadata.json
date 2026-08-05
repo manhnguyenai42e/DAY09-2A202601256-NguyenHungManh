@@ -3,22 +3,31 @@
   "starter_repo": "K4-Day9-Multi-Agent-A2A",
   "policy_version": "EC_POLICY_V2",
   "model": {
-    "name": "qwen3.5-4b-ec",
-    "params": "4B",
-    "quantization": "Q4_K_M",
-    "source": "Qwen3.5-4B-GGUF (lmstudio-community), imported into Ollama from local GGUF",
-    "runtime": "Ollama (local, http://localhost:11434)",
-    "used_by": "customer_agent, order_product_agent, payment_agent, delivery_agent, policy_agent (mỗi agent 1 lời gọi/case với role prompt riêng); verifier_agent cố tình không dùng LLM vì là cổng kiểm định cuối. Số học và định dạng evidence ID do MCP tool tính deterministic."
+    "primary": {
+      "name": "gpt-4o-mini",
+      "params": "not officially disclosed by OpenAI (third-party estimate ~8B, e.g. a Microsoft research paper — not a confirmed spec)",
+      "runtime": "OpenAI API (hosted, direct EC_LLM_PROVIDER=openai)",
+      "used_for_cases": 44
+    },
+    "secondary": {
+      "name": "qwen3.5-4b-ec",
+      "params": "4B (Qwen3.5-4B-GGUF Q4_K_M, provably <=10B)",
+      "runtime": "Ollama (local, http://localhost:11434, EC_LLM_PROVIDER=ollama)",
+      "used_for_cases": 6,
+      "case_ids": ["EC_043", "EC_045", "EC_046", "EC_047", "EC_049", "EC_050"]
+    },
+    "compliance_note": "Đề yêu cầu mỗi agent dùng model <=10B tham số. qwen3.5-4b-ec (6/50 case) chứng minh được (4B, model card rõ ràng). gpt-4o-mini (44/50 case) không được OpenAI công bố chính thức số tham số nên ràng buộc này không chứng minh được chắc chắn cho phần này — chỉ có ước tính không chính thức ~8B. Lý do dùng gpt-4o-mini cho phần lớn case: ban đầu chạy chính bằng OpenRouter/Qwen3-8B (model card chính thức 8B, xem architecture.md mục 5) nhưng tài khoản OpenRouter miễn phí hết credit giữa chừng do khối lượng test lớn trong phiên làm việc; chuyển sang gpt-4o-mini (quota tách biệt, đã kiểm chứng ổn định qua test tool-calling một-tool-một-lượt) để hoàn thành đúng hạn 50/50 case."
   },
+  "llm_usage": "Cả 7 agent đều dùng LLM, không có hàm Python nào tính hộ nội dung nghiệp vụ. Các MCP tool chỉ trả dữ liệu thô lọc theo khóa từ CSV gốc (không sum, không trừ ngày giờ, không dựng evidence ID, không phân loại). 6 agent nghiệp vụ chạy vòng lặp tool-calling thật: model tự gọi tool dữ liệu thô cần thiết, rồi TỰ tính toán (cộng tiền, trừ giờ, định dạng evidence ID, chọn primary_issue theo bảng luật...) và tự nộp kết quả có cấu trúc qua một tool nội bộ (report_*) — hệ thống chỉ bắt lấy đúng arguments model đưa ra, không sửa, và từ chối mọi lời gọi tool nộp-kết-quả đi kèm tool khác trong cùng lượt (chống model đoán số liệu trước khi thấy kết quả thật). Coordinator gọi LLM 2 lần (triage lúc nhận ticket, synthesis lúc đóng hồ sơ) và chỉ ghép các sub-object các agent đã tự tính lại theo đúng schema, không tính toán. Verifier có 2 lớp: (1) validate_case_output — deterministic, kiểm schema/trần mảng/evidence tồn tại trong CSV, không bao giờ điền hay sửa giá trị, chỉ pass/fail; (2) audit LLM có cấu trúc (report_audit) tự so sánh dấu số liệu (vd delivery_variance_hours) với dữ liệu gốc và đối chiếu primary_issue với bằng chứng — nếu phát hiện sai, Coordinator retry toàn bộ 4 agent nghiệp vụ + Policy (không chỉ Policy), vì lỗi có thể bắt nguồn từ bất kỳ agent nào.",
   "framework": {
     "orchestration": "hand-rolled A2A wire layer (Agent Card + JSON-RPC message/send) over Starlette/httpx",
     "data_access": "MCP (Model Context Protocol) server, streamable-http transport, mcp Python SDK"
   },
   "runtime": {
     "os": "Windows",
-    "gpu": "NVIDIA RTX 4050 Laptop, 6GB VRAM"
+    "gpu": "NVIDIA RTX 4050 Laptop, 6GB VRAM (dùng cho lane Ollama local)"
   },
   "cases_processed": 50,
   "cases_failed": [],
-  "total_runtime_seconds": 223.0
+  "notes": "Batch chạy nhiều lane song song (khác cổng qua EC_PORT_OFFSET) để tận dụng nhiều backend độc lập cùng lúc: ban đầu OpenRouter/Qwen3-8B (hết credit, 0 case) + Ollama local (10 case, 6 thành công) + OpenAI trực tiếp (40 case ban đầu, sau đó nhận thêm 4 case rớt từ lane Ollama = 44 case). Một số case cần chạy lại nhiều lượt do: (a) model bỏ sót field bắt buộc trong tool call trước khi bật strict mode, (b) max_tokens=1024 ban đầu cắt cụt JSON của report_case (đã tăng lên 4096), (c) một vài case biên (khách hàng chỉ có 1 đơn duy nhất) khiến model lặp vòng — đã bổ sung hướng dẫn rõ trong system prompt. Không case nào bị điền số liệu giả khi fail; mọi lần fail đều retry bằng cách gọi lại đúng agent, không có fallback deterministic."
 }
